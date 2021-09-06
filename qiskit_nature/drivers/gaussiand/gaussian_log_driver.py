@@ -19,14 +19,15 @@ from ..base_driver import BaseDriver
 from ...exceptions import QiskitNatureError
 from .gaussian_utils import check_valid, run_g16
 from .gaussian_log_result import GaussianLogResult
+from ...deprecation import DeprecatedType, warn_deprecated_same_type_name
 
 logger = logging.getLogger(__name__)
 
 
 class GaussianLogDriver(BaseDriver):
-    """  Gaussian™ 16 log driver.
+    """**DEPRECATED** Gaussian™ 16 log driver.
 
-    Qiskit chemistry driver using the Gaussian™ 16 program that provides the log
+    Qiskit Nature driver using the Gaussian™ 16 program that provides the log
     back, via :class:`GaussianLogResult`, for access to the log and data recorded there.
 
     See http://gaussian.com/gaussian16/
@@ -46,14 +47,19 @@ class GaussianLogDriver(BaseDriver):
         Raises:
             QiskitNatureError: Invalid Input
         """
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.CLASS,
+            "GaussianLogDriver",
+            "from qiskit_nature.drivers.second_quantization.gaussiand as a direct replacement",
+        )
         GaussianLogDriver._check_valid()
 
         if not isinstance(jcf, list) and not isinstance(jcf, str):
-            raise QiskitNatureError("Invalid input for Gaussian Log Driver '{}'"
-                                    .format(jcf))
+            raise QiskitNatureError("Invalid input for Gaussian Log Driver '{}'".format(jcf))
 
         if isinstance(jcf, list):
-            jcf = '\n'.join(jcf)
+            jcf = "\n".join(jcf)
 
         self._jcf = jcf
         super().__init__()
@@ -63,7 +69,7 @@ class GaussianLogDriver(BaseDriver):
         check_valid()
 
     def run(self) -> GaussianLogResult:
-        """ Runs the driver to produce a result given the supplied job control file.
+        """Runs the driver to produce a result given the supplied job control file.
 
         Returns:
             A log file result.
@@ -74,12 +80,14 @@ class GaussianLogDriver(BaseDriver):
         # The job control file, needs to end with a blank line to be valid for
         # Gaussian to process it. We simply add the blank line here if not.
         cfg = self._jcf
-        while not cfg.endswith('\n\n'):
-            cfg += '\n'
+        while not cfg.endswith("\n\n"):
+            cfg += "\n"
 
-        logger.debug("User supplied job control file raw: '%s'",
-                     cfg.replace('\r', '\\r').replace('\n', '\\n'))
-        logger.debug('User supplied job control file\n%s', cfg)
+        logger.debug(
+            "User supplied job control file raw: '%s'",
+            cfg.replace("\r", "\\r").replace("\n", "\\n"),
+        )
+        logger.debug("User supplied job control file\n%s", cfg)
 
         all_text = run_g16(cfg)
         if not all_text:

@@ -19,30 +19,38 @@ import numpy as np
 from qiskit.algorithms import EigensolverResult, MinimumEigensolverResult
 from qiskit.opflow import PauliSumOp
 
-from qiskit_nature.drivers import BosonicDriver, WatsonHamiltonian
+from qiskit_nature.drivers import WatsonHamiltonian
+from qiskit_nature.drivers.second_quantization import VibrationalStructureDriver
 from qiskit_nature.operators.second_quantization import SecondQuantizedOp
 from qiskit_nature.converters.second_quantization import QubitConverter
+from qiskit_nature.properties.second_quantization.vibrational import (
+    VibrationalStructureDriverResult,
+)
+from qiskit_nature.properties.second_quantization.vibrational.bases import HarmonicBasis
 from qiskit_nature.results import EigenstateResult, VibrationalStructureResult
-from qiskit_nature.transformers import BaseTransformer
+from qiskit_nature.transformers import BaseTransformer as LegacyBaseTransformer
+from qiskit_nature.transformers.second_quantization import BaseTransformer
 
 from .builders.hopping_ops_builder import _build_qeom_hopping_ops
-from .builders.vibrational_op_builder import _build_vibrational_op
-from .builders.aux_vibrational_ops_builder import _create_all_aux_operators
-from .result_interpreter import _interpret
 from ..base_problem import BaseProblem
 
 
 class VibrationalStructureProblem(BaseProblem):
     """Vibrational Structure Problem"""
 
-    def __init__(self, bosonic_driver: BosonicDriver, num_modals: Union[int, List[int]],
-                 truncation_order: int, transformers: Optional[List[BaseTransformer]] = None):
+    def __init__(
+        self,
+        bosonic_driver: VibrationalStructureDriver,
+        num_modals: Union[int, List[int]],
+        truncation_order: int,
+        transformers: Optional[List[Union[LegacyBaseTransformer, BaseTransformer]]] = None,
+    ):
         """
         Args:
-            bosonic_driver: A bosonic driver encoding the molecule information.
-            transformers: A list of transformations to be applied to the molecule.
+            bosonic_driver: a bosonic driver encoding the molecule information.
             num_modals: the number of modals per mode.
             truncation_order: order at which an n-body expansion is truncated
+            transformers: a list of transformations to be applied to the driver result.
         """
         super().__init__(bosonic_driver, transformers)
         self.num_modals = num_modals
@@ -53,34 +61,64 @@ class VibrationalStructureProblem(BaseProblem):
         provided.
 
         Returns:
-            A list of `SecondQuantizedOp` in the following order: ... .
+            A list of `SecondQuantizedOp` in the following order: Vibrational Hamiltonian operator,
+            occupied modal operators for each mode.
         """
-        self._molecule_data: WatsonHamiltonian = cast(WatsonHamiltonian, self.driver.run())
-        self._molecule_data_transformed: WatsonHamiltonian = \
-            cast(WatsonHamiltonian, self._transform(self._molecule_data))
+        driver_result = self.driver.run()
 
-        vibrational_spin_op = _build_vibrational_op(self._molecule_data_transformed,
-                                                    self.num_modals,
-                                                    self.truncation_order)
+        if self._legacy_driver:
+            self._molecule_data = cast(WatsonHamiltonian, driver_result)
+            self._grouped_property = VibrationalStructureDriverResult.from_legacy_driver_result(
+                self._molecule_data
+            )
 
-        num_modes = self._molecule_data_transformed.num_modes
+            if self._legacy_transform:
+                self._molecule_data_transformed = self._transform(self._molecule_data)
+                self._grouped_property_transformed = (
+                    VibrationalStructureDriverResult.from_legacy_driver_result(
+                        self._molecule_data_transformed
+                    )
+                )
+
+            else:
+                self._grouped_property_transformed = self._transform(self._grouped_property)
+
+        else:
+            self._grouped_property = driver_result
+            self._grouped_property_transformed = self._transform(self._grouped_property)
+
+        self._grouped_property_transformed = cast(
+            VibrationalStructureDriverResult, self._grouped_property_transformed
+        )
+
+        num_modes = self._grouped_property_transformed.num_modes
         if isinstance(self.num_modals, int):
             num_modals = [self.num_modals] * num_modes
         else:
             num_modals = self.num_modals
 
-        second_quantized_ops_list = [vibrational_spin_op] + _create_all_aux_operators(num_modals)
+        # TODO: expose this as an argument in __init__
+        basis = HarmonicBasis(num_modals)
+        self._grouped_property_transformed.basis = basis
+
+        second_quantized_ops_list = self._grouped_property_transformed.second_q_ops()
 
         return second_quantized_ops_list
 
-    def hopping_qeom_ops(self, qubit_converter: QubitConverter,
-                         excitations: Union[str, int, List[int],
-                                            Callable[[int, Tuple[int, int]],
-                                                     List[Tuple[
-                                                         Tuple[int, ...], Tuple[
-                                                             int, ...]]]]] = 'sd',
-                         ) -> Tuple[Dict[str, PauliSumOp], Dict[str, List[bool]],
-                                    Dict[str, Tuple[Tuple[int, ...], Tuple[int, ...]]]]:
+    def hopping_qeom_ops(
+        self,
+        qubit_converter: QubitConverter,
+        excitations: Union[
+            str,
+            int,
+            List[int],
+            Callable[[int, Tuple[int, int]], List[Tuple[Tuple[int, ...], Tuple[int, ...]]]],
+        ] = "sd",
+    ) -> Tuple[
+        Dict[str, PauliSumOp],
+        Dict[str, List[bool]],
+        Dict[str, Tuple[Tuple[int, ...], Tuple[int, ...]]],
+    ]:
         """Generates the hopping operators and their commutativity information for the specified set
         of excitations.
 
@@ -103,25 +141,48 @@ class VibrationalStructureProblem(BaseProblem):
         """
 
         if isinstance(self.num_modals, int):
-            num_modals = [self.num_modals] * self._molecule_data_transformed.num_modes
+            num_modals = [self.num_modals] * cast(
+                VibrationalStructureDriverResult, self._grouped_property_transformed
+            ).num_modes
         else:
             num_modals = self.num_modals
 
         return _build_qeom_hopping_ops(num_modals, qubit_converter, excitations)
 
-    def interpret(self, raw_result: Union[EigenstateResult, EigensolverResult,
-                                          MinimumEigensolverResult]) -> VibrationalStructureResult:
+    def interpret(
+        self,
+        raw_result: Union[EigenstateResult, EigensolverResult, MinimumEigensolverResult],
+    ) -> VibrationalStructureResult:
         """Interprets an EigenstateResult in the context of this transformation.
-               Args:
-                   raw_result: an eigenstate result object.
-               Returns:
-                   An vibrational structure result.
-               """
+        Args:
+            raw_result: an eigenstate result object.
+        Returns:
+            An vibrational structure result.
+        """
+        eigenstate_result = None
+        if isinstance(raw_result, EigenstateResult):
+            eigenstate_result = raw_result
+        elif isinstance(raw_result, EigensolverResult):
+            eigenstate_result = EigenstateResult()
+            eigenstate_result.raw_result = raw_result
+            eigenstate_result.eigenenergies = raw_result.eigenvalues
+            eigenstate_result.eigenstates = raw_result.eigenstates
+            eigenstate_result.aux_operator_eigenvalues = raw_result.aux_operator_eigenvalues
+        elif isinstance(raw_result, MinimumEigensolverResult):
+            eigenstate_result = EigenstateResult()
+            eigenstate_result.raw_result = raw_result
+            eigenstate_result.eigenenergies = np.asarray([raw_result.eigenvalue])
+            eigenstate_result.eigenstates = [raw_result.eigenstate]
+            eigenstate_result.aux_operator_eigenvalues = [raw_result.aux_operator_eigenvalues]
+        result = VibrationalStructureResult()
+        result.combine(eigenstate_result)
+        self._grouped_property_transformed.interpret(result)
+        result.computed_vibrational_energies = eigenstate_result.eigenenergies
+        return result
 
-        return _interpret(self._molecule_data.num_modes, raw_result)
-
-    def get_default_filter_criterion(self) -> Optional[Callable[[Union[List, np.ndarray], float,
-                                                                 Optional[List[float]]], bool]]:
+    def get_default_filter_criterion(
+        self,
+    ) -> Optional[Callable[[Union[List, np.ndarray], float, Optional[List[float]]], bool]]:
         """Returns a default filter criterion method to filter the eigenvalues computed by the
         eigen solver. For more information see also
         aqua.algorithms.eigen_solvers.NumPyEigensolver.filter_criterion.
@@ -132,7 +193,7 @@ class VibrationalStructureProblem(BaseProblem):
         # pylint: disable=unused-argument
         def filter_criterion(self, eigenstate, eigenvalue, aux_values):
             # the first num_modes aux_value is the evaluated number of particles for the given mode
-            for mode in range(self.molecule_data.num_modes):
+            for mode in range(self.grouped_property_transformed.num_modes):
                 if aux_values is None or not np.isclose(aux_values[mode][0], 1):
                     return False
             return True

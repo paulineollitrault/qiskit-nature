@@ -14,12 +14,12 @@
 
 from test import QiskitNatureTestCase
 
-from ddt import ddt, data, unpack
+from ddt import data, ddt, unpack
 
 from qiskit_nature.circuit.library import UCC
+from qiskit_nature.converters.second_quantization import QubitConverter
 from qiskit_nature.mappers.second_quantization import JordanWignerMapper
 from qiskit_nature.operators.second_quantization import FermionicOp
-from qiskit_nature.converters.second_quantization import QubitConverter
 
 
 def assert_ucc_like_ansatz(test_case, ansatz, num_spin_orbitals, expected_ops):
@@ -28,8 +28,7 @@ def assert_ucc_like_ansatz(test_case, ansatz, num_spin_orbitals, expected_ops):
 
     test_case.assertEqual(len(excitation_ops), len(expected_ops))
     for op, exp in zip(excitation_ops, expected_ops):
-        test_case.assertEqual(op._labels, exp._labels)
-        test_case.assertEqual(op._coeffs.tolist(), exp._coeffs.tolist())
+        test_case.assertListEqual(op.to_list(), exp.to_list())
 
     ansatz._build()
     test_case.assertEqual(ansatz.num_qubits, num_spin_orbitals)
@@ -44,27 +43,48 @@ class TestUCC(QiskitNatureTestCase):
 
     @unpack
     @data(
-        ('t', 8, (2, 2), [FermionicOp([('++--+I-I', 1j), ('--++-I+I', 1j)]),
-                          FermionicOp([('++--+II-', 1j), ('--++-II+', 1j)]),
-                          FermionicOp([('++--I+-I', 1j), ('--++I-+I', 1j)]),
-                          FermionicOp([('++--I+I-', 1j), ('--++I-I+', 1j)]),
-                          FermionicOp([('+I-I++--', 1j), ('-I+I--++', 1j)]),
-                          FermionicOp([('+II-++--', 1j), ('-II+--++', 1j)]),
-                          FermionicOp([('I+-I++--', 1j), ('I-+I--++', 1j)]),
-                          FermionicOp([('I+I-++--', 1j), ('I-I+--++', 1j)])]),
-        ('t', 8, (2, 1), [FermionicOp([('++--+-II', 1j), ('--++-+II', 1j)]),
-                          FermionicOp([('++--+I-I', 1j), ('--++-I+I', 1j)]),
-                          FermionicOp([('++--+II-', 1j), ('--++-II+', 1j)])]),
-        ('q', 8, (2, 2), [FermionicOp([('++--++--', 1j), ('--++--++', -1j)])]),
+        (
+            "t",
+            8,
+            (2, 2),
+            [
+                FermionicOp([("++--+I-I", 1j), ("--++-I+I", 1j)], display_format="dense"),
+                FermionicOp([("++--+II-", 1j), ("--++-II+", 1j)], display_format="dense"),
+                FermionicOp([("++--I+-I", 1j), ("--++I-+I", 1j)], display_format="dense"),
+                FermionicOp([("++--I+I-", 1j), ("--++I-I+", 1j)], display_format="dense"),
+                FermionicOp([("+I-I++--", 1j), ("-I+I--++", 1j)], display_format="dense"),
+                FermionicOp([("+II-++--", 1j), ("-II+--++", 1j)], display_format="dense"),
+                FermionicOp([("I+-I++--", 1j), ("I-+I--++", 1j)], display_format="dense"),
+                FermionicOp([("I+I-++--", 1j), ("I-I+--++", 1j)], display_format="dense"),
+            ],
+        ),
+        (
+            "t",
+            8,
+            (2, 1),
+            [
+                FermionicOp([("++--+-II", 1j), ("--++-+II", 1j)], display_format="dense"),
+                FermionicOp([("++--+I-I", 1j), ("--++-I+I", 1j)], display_format="dense"),
+                FermionicOp([("++--+II-", 1j), ("--++-II+", 1j)], display_format="dense"),
+            ],
+        ),
+        (
+            "q",
+            8,
+            (2, 2),
+            [FermionicOp([("++--++--", 1j), ("--++--++", -1j)], display_format="dense")],
+        ),
         # TODO: add more edge cases?
     )
     def test_ucc_ansatz(self, excitations, num_spin_orbitals, num_particles, expect):
         """Tests the UCC Ansatz."""
         converter = QubitConverter(JordanWignerMapper())
 
-        ansatz = UCC(qubit_converter=converter,
-                     num_particles=num_particles,
-                     num_spin_orbitals=num_spin_orbitals,
-                     excitations=excitations)
+        ansatz = UCC(
+            qubit_converter=converter,
+            num_particles=num_particles,
+            num_spin_orbitals=num_spin_orbitals,
+            excitations=excitations,
+        )
 
         assert_ucc_like_ansatz(self, ansatz, num_spin_orbitals, expect)

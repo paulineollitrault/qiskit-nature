@@ -17,7 +17,7 @@ from typing import Any
 
 
 class BaseTransformer(ABC):
-    """The interface for implementing methods which map from one `QMolecule` or
+    """**DEPRECATED!** The interface for implementing methods which map from one `QMolecule` or
     'WatsonHamiltonian' to another. These methods may or may not affect the size of the Hilbert
     space.
     """

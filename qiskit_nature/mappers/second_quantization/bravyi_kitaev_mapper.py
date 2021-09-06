@@ -13,7 +13,6 @@
 """The Bravyi-Kitaev Mapper."""
 
 import numpy as np
-
 from qiskit.opflow import PauliSumOp
 from qiskit.quantum_info.operators import Pauli
 
@@ -23,8 +22,10 @@ from .fermionic_mapper import FermionicMapper
 from .qubit_mapper import QubitMapper
 
 
-class BravyiKitaevMapper(FermionicMapper):
-    """The Bravyi-Kitaev fermion-to-qubit mapping. """
+class BravyiKitaevMapper(FermionicMapper):  # pylint: disable=missing-class-docstring
+    def __init__(self):
+        """The Bravyi-Kitaev fermion-to-qubit mapping."""
+        super().__init__(allows_two_qubit_reduction=False)
 
     def map(self, second_q_op: FermionicOp) -> PauliSumOp:
 
@@ -49,8 +50,9 @@ class BravyiKitaevMapper(FermionicMapper):
             if j < n / 2:
                 indices = np.append(indices, parity_set(j, n / 2))
             else:
-                indices = np.append(indices, np.append(
-                    parity_set(j - n / 2, n / 2) + n / 2, n / 2 - 1))
+                indices = np.append(
+                    indices, np.append(parity_set(j - n / 2, n / 2) + n / 2, n / 2 - 1)
+                )
             return indices
 
         def update_set(j, n):
@@ -68,8 +70,7 @@ class BravyiKitaevMapper(FermionicMapper):
             if n % 2 != 0:
                 return indices
             if j < n / 2:
-                indices = np.append(indices, np.append(
-                    n - 1, update_set(j, n / 2)))
+                indices = np.append(indices, np.append(n - 1, update_set(j, n / 2)))
             else:
                 indices = np.append(indices, update_set(j - n / 2, n / 2) + n / 2)
             return indices
@@ -93,8 +94,9 @@ class BravyiKitaevMapper(FermionicMapper):
             elif n / 2 <= j < n - 1:
                 indices = np.append(indices, flip_set(j - n / 2, n / 2) + n / 2)
             else:
-                indices = np.append(np.append(indices, flip_set(
-                    j - n / 2, n / 2) + n / 2), n / 2 - 1)
+                indices = np.append(
+                    np.append(indices, flip_set(j - n / 2, n / 2) + n / 2), n / 2 - 1
+                )
             return indices
 
         pauli_table = []
@@ -127,12 +129,11 @@ class BravyiKitaevMapper(FermionicMapper):
 
             remainder_sets.append(np.setdiff1d(parity_sets[j], flip_sets[j]))
 
-            update_pauli.append(Pauli((np.zeros(nmodes, dtype=bool),
-                                       np.zeros(nmodes, dtype=bool))))
-            parity_pauli.append(Pauli((np.zeros(nmodes, dtype=bool),
-                                       np.zeros(nmodes, dtype=bool))))
-            remainder_pauli.append(Pauli((np.zeros(nmodes, dtype=bool),
-                                          np.zeros(nmodes, dtype=bool))))
+            update_pauli.append(Pauli((np.zeros(nmodes, dtype=bool), np.zeros(nmodes, dtype=bool))))
+            parity_pauli.append(Pauli((np.zeros(nmodes, dtype=bool), np.zeros(nmodes, dtype=bool))))
+            remainder_pauli.append(
+                Pauli((np.zeros(nmodes, dtype=bool), np.zeros(nmodes, dtype=bool)))
+            )
             for k in range(nmodes):
                 if np.in1d(k, update_sets[j]):
                     update_pauli[j].x[k] = True
@@ -146,7 +147,17 @@ class BravyiKitaevMapper(FermionicMapper):
             y_j = Pauli((np.zeros(nmodes, dtype=bool), np.zeros(nmodes, dtype=bool)))
             y_j.z[j] = True
             y_j.x[j] = True
-            pauli_table.append((parity_pauli[j] & x_j & update_pauli[j],
-                                remainder_pauli[j] & y_j & update_pauli[j]))
+            pauli_table.append(
+                (
+                    parity_pauli[j] & x_j & update_pauli[j],
+                    remainder_pauli[j] & y_j & update_pauli[j],
+                )
+            )
+
+        # PauliList has the phase information unlike deprecated PauliTable.
+        # Here, phase is unnecessary, so the following removes phase.
+        for pauli1, pauli2 in pauli_table:
+            pauli1.phase = 0
+            pauli2.phase = 0
 
         return QubitMapper.mode_based_mapping(second_q_op, pauli_table)

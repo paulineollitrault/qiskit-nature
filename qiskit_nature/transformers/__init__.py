@@ -11,24 +11,15 @@
 # that they have been altered from the originals.
 
 """
-QMolecule Transformers (:mod:`qiskit_nature.transformers`)
-==========================================================
+Transformers (:mod:`qiskit_nature.transformers`)
+================================================
 
 .. currentmodule:: qiskit_nature.transformers
 
-Transformers act on a :class:`~qiskit_nature.drivers.QMolecule` to produce an altered copy of it
-as per the specific transformer. So for instance the :class:`FreezeCoreTransformer` will alter the
-integrals and number of particles in a way that freezes the core orbitals, storing an extracted
-energy in the QMolecule to compensate for this that would need to be included back into any ground
-state energy computation to get complete result.
-
 .. autosummary::
-   :toctree: ../stubs/
+   :toctree:
 
-   BaseTransformer
-   ActiveSpaceTransformer
-   FreezeCoreTransformer
-
+   second_quantization
 """
 
 from .active_space_transformer import ActiveSpaceTransformer
@@ -36,7 +27,7 @@ from .base_transformer import BaseTransformer
 from .freeze_core_transformer import FreezeCoreTransformer
 
 __all__ = [
-    'ActiveSpaceTransformer',
-    'BaseTransformer',
-    'FreezeCoreTransformer',
+    "ActiveSpaceTransformer",
+    "BaseTransformer",
+    "FreezeCoreTransformer",
 ]

@@ -15,6 +15,7 @@
 from typing import List, Optional
 import logging
 
+from qiskit_nature.deprecation import DeprecatedType, warn_deprecated_same_type_name
 from qiskit_nature.drivers import QMolecule
 
 from .active_space_transformer import ActiveSpaceTransformer
@@ -23,11 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 class FreezeCoreTransformer(ActiveSpaceTransformer):
-    """The Freeze-Core reduction."""
+    """**DEPRECATED!** The Freeze-Core reduction."""
 
-    def __init__(self, freeze_core: bool = True,
-                 remove_orbitals: Optional[List[int]] = None,
-                 ):
+    def __init__(
+        self,
+        freeze_core: bool = True,
+        remove_orbitals: Optional[List[int]] = None,
+    ):
         """Initializes a transformer which reduces a `QMolecule` by removing some molecular
         orbitals.
 
@@ -50,6 +53,12 @@ class FreezeCoreTransformer(ActiveSpaceTransformer):
                              must make sure that these are _unoccupied_ orbitals, which can be
                              removed without taking any energy shifts into account.
         """
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.CLASS,
+            "FreezeCoreTransformer",
+            "from qiskit_nature.transformers.second_quantization.electronic as a direct replacement",
+        )
         self._freeze_core = freeze_core
         self._remove_orbitals = remove_orbitals
 
@@ -75,8 +84,9 @@ class FreezeCoreTransformer(ActiveSpaceTransformer):
 
         def rename_dict_key(energy_shift_dict):
             try:
-                energy_shift_dict['FreezeCoreTransformer'] = \
-                    energy_shift_dict.pop('ActiveSpaceTransformer')
+                energy_shift_dict["FreezeCoreTransformer"] = energy_shift_dict.pop(
+                    "ActiveSpaceTransformer"
+                )
             except KeyError:
                 pass
 
@@ -96,8 +106,9 @@ class FreezeCoreTransformer(ActiveSpaceTransformer):
         inactive_orbs_idxs = molecule_data.core_orbitals
         if self._remove_orbitals is not None:
             inactive_orbs_idxs.extend(self._remove_orbitals)
-        active_orbs_idxs = [o for o in range(molecule_data.num_molecular_orbitals)
-                            if o not in inactive_orbs_idxs]
+        active_orbs_idxs = [
+            o for o in range(molecule_data.num_molecular_orbitals) if o not in inactive_orbs_idxs
+        ]
         self._active_orbitals = active_orbs_idxs
         self._num_molecular_orbitals = len(active_orbs_idxs)
 

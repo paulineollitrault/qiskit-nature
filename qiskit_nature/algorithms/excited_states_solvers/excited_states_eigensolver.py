@@ -12,7 +12,6 @@
 
 """The calculation of excited states via an Eigensolver algorithm"""
 
-import logging
 from typing import List, Union, Optional
 
 from qiskit.algorithms import Eigensolver
@@ -26,14 +25,15 @@ from qiskit_nature.results import EigenstateResult
 from .excited_states_solver import ExcitedStatesSolver
 from .eigensolver_factories import EigensolverFactory
 
-logger = logging.getLogger(__name__)
-
 
 class ExcitedStatesEigensolver(ExcitedStatesSolver):
     """The calculation of excited states via an Eigensolver algorithm"""
 
-    def __init__(self, qubit_converter: QubitConverter,
-                 solver: Union[Eigensolver, EigensolverFactory]) -> None:
+    def __init__(
+        self,
+        qubit_converter: QubitConverter,
+        solver: Union[Eigensolver, EigensolverFactory],
+    ) -> None:
         """
 
         Args:
@@ -55,9 +55,11 @@ class ExcitedStatesEigensolver(ExcitedStatesSolver):
         """Sets the minimum eigensolver or factory."""
         self._solver = solver
 
-    def solve(self, problem: BaseProblem,
-              aux_operators: Optional[List[Union[SecondQuantizedOp, PauliSumOp]]] = None,
-              ) -> EigenstateResult:
+    def solve(
+        self,
+        problem: BaseProblem,
+        aux_operators: Optional[List[Union[SecondQuantizedOp, PauliSumOp]]] = None,
+    ) -> EigenstateResult:
         """Compute Ground and Excited States properties.
 
         Args:
@@ -80,7 +82,7 @@ class ExcitedStatesEigensolver(ExcitedStatesSolver):
         main_operator = self._qubit_converter.convert(
             second_q_ops[0],
             num_particles=problem.num_particles,
-            sector_locator=problem.symmetry_sector_locator
+            sector_locator=problem.symmetry_sector_locator,
         )
         aux_ops = self._qubit_converter.convert_match(second_q_ops[1:])
 

@@ -12,26 +12,29 @@
 
 """The evolved operator ansatz."""
 
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
 import numpy as np
-
-from qiskit.circuit import Parameter, ParameterVector, QuantumRegister, QuantumCircuit
+from qiskit.circuit import Parameter, ParameterVector, QuantumCircuit, QuantumRegister
 from qiskit.circuit.exceptions import CircuitError
 from qiskit.circuit.library import BlueprintCircuit
-from qiskit.opflow import OperatorBase, EvolutionBase, PauliTrotterEvolution
+from qiskit.opflow import EvolutionBase, OperatorBase, PauliTrotterEvolution
+
+from qiskit_nature.deprecation import DeprecatedType, warn_deprecated_same_type_name
 
 
 class EvolvedOperatorAnsatz(BlueprintCircuit):
     """The evolved operator ansatz."""
 
-    def __init__(self,
-                 operators: Optional[Union[OperatorBase, List[OperatorBase]]] = None,
-                 reps: int = 1,
-                 evolution: Optional[EvolutionBase] = None,
-                 insert_barriers: bool = False,
-                 name: str = 'EvolvedOps',
-                 initial_state: Optional[QuantumCircuit] = None):
+    def __init__(
+        self,
+        operators: Optional[Union[OperatorBase, List[OperatorBase]]] = None,
+        reps: int = 1,
+        evolution: Optional[EvolutionBase] = None,
+        insert_barriers: bool = False,
+        name: str = "EvolvedOps",
+        initial_state: Optional[QuantumCircuit] = None,
+    ):
         """
         Args:
             operators: The operators to evolve.
@@ -42,6 +45,12 @@ class EvolvedOperatorAnsatz(BlueprintCircuit):
             name: The name of the circuit.
             initial_state: A `QuantumCircuit` object to prepend to the circuit.
         """
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.CLASS,
+            "EvolvedOperatorAnsatz",
+            "from qiskit.circuit.library as a direct replacement",
+        )
         if evolution is None:
             evolution = PauliTrotterEvolution()
 
@@ -58,12 +67,12 @@ class EvolvedOperatorAnsatz(BlueprintCircuit):
     def _check_configuration(self, raise_on_failure: bool = True) -> bool:
         if self.operators is None:
             if raise_on_failure:
-                raise ValueError('The operators are not set.')
+                raise ValueError("The operators are not set.")
             return False
 
         if self.reps < 1:
             if raise_on_failure:
-                raise ValueError('The reps cannot be smaller than 1.')
+                raise ValueError("The reps cannot be smaller than 1.")
             return False
 
         return True
@@ -115,7 +124,7 @@ class EvolvedOperatorAnsatz(BlueprintCircuit):
         if len(operators) > 1:
             num_qubits = operators[0].num_qubits
             if any(operators[i].num_qubits != num_qubits for i in range(1, len(operators))):
-                raise ValueError('All operators must act on the same number of qubits.')
+                raise ValueError("All operators must act on the same number of qubits.")
 
         self._invalidate()
         self._operators = operators
@@ -158,21 +167,21 @@ class EvolvedOperatorAnsatz(BlueprintCircuit):
         self._data = []
 
         # get the evolved operators as circuits
-        coeff = Parameter('c')
+        coeff = Parameter("c")
         evolved_ops = [self.evolution.convert((coeff * op).exp_i()) for op in self.operators]
         circuits = [evolved_op.reduce().to_circuit() for evolved_op in evolved_ops]
 
         # set the registers
         num_qubits = circuits[0].num_qubits
         try:
-            qr = QuantumRegister(num_qubits, 'q')
+            qr = QuantumRegister(num_qubits, "q")
             self.add_register(qr)
         except CircuitError:
             # the register already exists, probably because of a previous composition
             pass
 
         # build the circuit
-        times = ParameterVector('t', self.reps * len(self.operators))
+        times = ParameterVector("t", self.reps * len(self.operators))
         times_it = iter(times)
 
         first = True

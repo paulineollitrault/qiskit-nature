@@ -10,7 +10,10 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Excitation generator utilities.
+"""
+Excitation generator utilities (:mod:`qiskit_nature.circuit.library.ansatzes.utils`)
+====================================================================================
+Utility methods to build fermionic and vibrational excitations.
 
 .. currentmodule:: qiskit_nature.circuit.library.ansatzes.utils
 
@@ -26,6 +29,6 @@ from .fermionic_excitation_generator import generate_fermionic_excitations
 from .vibration_excitation_generator import generate_vibration_excitations
 
 __all__ = [
-    'generate_fermionic_excitations',
-    'generate_vibration_excitations',
+    "generate_fermionic_excitations",
+    "generate_vibration_excitations",
 ]

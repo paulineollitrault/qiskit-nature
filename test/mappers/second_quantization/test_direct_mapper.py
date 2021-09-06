@@ -13,30 +13,37 @@
 """ Test Direct Mapper """
 
 import unittest
+import warnings
 
 from test import QiskitNatureTestCase
 from test.mappers.second_quantization.resources.reference_direct_mapper import REFERENCE
 
-from qiskit_nature.drivers import GaussianForcesDriver
+from qiskit_nature.drivers.second_quantization import GaussianForcesDriver
 from qiskit_nature.mappers.second_quantization import DirectMapper
-from qiskit_nature.problems.second_quantization.vibrational.builders.vibrational_op_builder import \
-        _build_vibrational_op
+from qiskit_nature.properties.second_quantization.vibrational.bases import HarmonicBasis
 
 
 class TestDirectMapper(QiskitNatureTestCase):
-    """ Test Direct Mapper """
+    """Test Direct Mapper"""
 
     def test_mapping(self):
-        """ Test mapping to qubit operator """
-        driver = GaussianForcesDriver(logfile=self.get_resource_path(
-            'CO2_freq_B3LYP_ccpVDZ.log', 'problems/second_quantization/vibrational/resources'
-        ))
-        watson_hamiltonian = driver.run()
+        """Test mapping to qubit operator"""
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            driver = GaussianForcesDriver(
+                logfile=self.get_resource_path(
+                    "CO2_freq_B3LYP_ccpVDZ.log",
+                    "problems/second_quantization/vibrational/resources",
+                )
+            )
+            driver_result = driver.run()
+        num_modes = driver_result.num_modes
+        num_modals = [2] * num_modes
 
-        num_modals = 2
-        truncation = 3
+        vibration_energy = driver_result.get_property("VibrationalEnergy")
+        vibration_energy.basis = HarmonicBasis(num_modals)
 
-        vibration_op = _build_vibrational_op(watson_hamiltonian, num_modals, truncation)
+        vibration_op = vibration_energy.second_q_ops()[0]
 
         mapper = DirectMapper()
         qubit_op = mapper.map(vibration_op)
@@ -44,10 +51,10 @@ class TestDirectMapper(QiskitNatureTestCase):
         self.assertEqual(qubit_op, REFERENCE)
 
     def test_allows_two_qubit_reduction(self):
-        """ Test this returns False for this mapper """
+        """Test this returns False for this mapper"""
         mapper = DirectMapper()
         self.assertFalse(mapper.allows_two_qubit_reduction)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

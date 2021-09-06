@@ -43,6 +43,15 @@ Ansatzes
    UVCC
    UVCCSD
 
+Ansatz Utilities
+================
+
+Utilities such as excitation generators for use with the ansatzes.
+
+.. autosummary::
+   :toctree:
+
+   ansatzes.utils
 """
 
 from .ansatzes import (
@@ -56,20 +65,17 @@ from .ansatzes import (
     UVCCSD,
 )
 
-from .initial_states import (
-    HartreeFock,
-    VSCF
-)
+from .initial_states import HartreeFock, VSCF
 
 __all__ = [
-    'EvolvedOperatorAnsatz',
-    'UCC',
-    'UCCSD',
-    'PUCCD',
-    'SUCCD',
-    'HartreeFock',
-    'CHC',
-    'UVCC',
-    'UVCCSD',
-    'VSCF',
+    "EvolvedOperatorAnsatz",
+    "UCC",
+    "UCCSD",
+    "PUCCD",
+    "SUCCD",
+    "HartreeFock",
+    "CHC",
+    "UVCC",
+    "UVCCSD",
+    "VSCF",
 ]

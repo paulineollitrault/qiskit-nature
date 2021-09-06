@@ -23,17 +23,21 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
+sys.path.append(os.path.abspath('.'))
 
 """
 Sphinx documentation builder
 """
 
-import os
 import qiskit_sphinx_theme
 import qiskit_nature
+from custom_directives import (IncludeDirective, GalleryItemDirective,
+                               CustomGalleryItemDirective, CustomCalloutItemDirective,
+                               CustomCardItemDirective)
+
 # Set env flag so that we can doc functions that may otherwise not be loaded
 # see for example interactive visualizations in qiskit.visualization.
 os.environ['QISKIT_DOCS'] = 'TRUE'
@@ -59,17 +63,18 @@ rst_prolog = """
 nbsphinx_prolog = """
 {% set docname = env.doc2path(env.docname, base=None) %}
 .. only:: html
-
+    
     .. role:: raw-html(raw)
         :format: html
-
-    .. raw:: html
-
-        <br><br><br>
-
+    
     .. note::
-        Run interactively in jupyter notebook.
-"""
+        This page was generated from `docs/{{ docname }}`__.
+        
+        __"""
+
+vers = version.split(".")
+link_str = f" https://github.com/Qiskit/qiskit-nature/blob/stable/{vers[0]}.{vers[1]}/docs/"
+nbsphinx_prolog += link_str + "{{ docname }}"
 
 # -- General configuration ---------------------------------------------------
 
@@ -87,7 +92,7 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.extlinks',
-    'sphinx_tabs.tabs',
+    'sphinx_panels',
     'jupyter_sphinx',
     'sphinx_autodoc_typehints',
     'reno.sphinxext',
@@ -104,6 +109,9 @@ nbsphinx_widgets_path = ''
 exclude_patterns = ['_build', '**.ipynb_checkpoints']
 nbsphinx_thumbnails = {
 }
+
+spelling_word_list_filename = "../.pylintdict"
+spelling_filters = ["lowercase_filter.LowercaseFilter"]
 
 # -----------------------------------------------------------------------------
 # Autosummary
@@ -139,6 +147,10 @@ numfig_format = {
 # Usually you set "language" from the command line for these cases.
 language = None
 
+# For Adding Locale
+locale_dirs = ['locale/']   # path is example but recommended.
+gettext_compact = False     # optional.
+
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
@@ -167,7 +179,7 @@ modindex_common_prefix = ['qiskit_nature.']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-  #
+#
 html_theme = "qiskit_sphinx_theme"
 
 html_theme_path = ['.', qiskit_sphinx_theme.get_html_theme_path()]
@@ -188,3 +200,13 @@ html_theme_options = {
     'includehidden': True,
     'titles_only': False,
 }
+
+# -- Extension configuration -------------------------------------------------
+
+def setup(app):
+    app.add_directive('includenodoc', IncludeDirective)
+    app.add_directive('galleryitem', GalleryItemDirective)
+    app.add_directive('customgalleryitem', CustomGalleryItemDirective)
+    app.add_directive('customcarditem', CustomCardItemDirective)
+    app.add_directive('customcalloutitem', CustomCalloutItemDirective)
+    app.setup_extension('versionutils')

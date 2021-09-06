@@ -16,7 +16,7 @@ Qiskit Nature module (:mod:`qiskit_nature`)
 
 .. currentmodule:: qiskit_nature
 
-The Qiskit Nature module provides function to experiment with quantum computing for natural
+Qiskit Nature provides function to experiment with quantum computing for natural
 science problems, such as in chemistry and physics. For example computing the ground state energy
 or excited state energies of molecules.
 
@@ -27,6 +27,7 @@ The top-level classes and submodules of qiskit_nature are:
    :nosignatures:
 
    QiskitNatureError
+   UnsupportMethodError
 
 Submodules
 ==========
@@ -41,15 +42,18 @@ Submodules
    mappers
    operators
    problems
+   properties
    results
+   runtime
    transformers
 
 """
 
 from .version import __version__
-from .exceptions import QiskitNatureError
+from .exceptions import QiskitNatureError, UnsupportMethodError
 
 __all__ = [
-    '__version__',
-    'QiskitNatureError',
+    "__version__",
+    "QiskitNatureError",
+    "UnsupportMethodError",
 ]

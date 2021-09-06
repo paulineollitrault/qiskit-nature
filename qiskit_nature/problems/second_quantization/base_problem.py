@@ -12,46 +12,123 @@
 # This code is part of Qiskit.
 """The Base Problem class."""
 
+import warnings
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-
 from qiskit.opflow import PauliSumOp, Z2Symmetries
 
-from qiskit_nature.drivers import BaseDriver, QMolecule, WatsonHamiltonian
+from qiskit_nature import QiskitNatureError
 from qiskit_nature.converters.second_quantization import QubitConverter
+from qiskit_nature.deprecation import DeprecatedType, deprecate_property
+from qiskit_nature.drivers import QMolecule, WatsonHamiltonian
+from qiskit_nature.drivers import BaseDriver as LegacyBaseDriver
+from qiskit_nature.drivers.second_quantization import BaseDriver
+from qiskit_nature.properties.second_quantization import GroupedSecondQuantizedProperty
 from qiskit_nature.results import EigenstateResult
-from qiskit_nature.transformers import BaseTransformer
+from qiskit_nature.transformers import BaseTransformer as LegacyBaseTransformer
+from qiskit_nature.transformers.second_quantization import BaseTransformer
+
+LegacyDriverResult = Union[QMolecule, WatsonHamiltonian]
 
 
 class BaseProblem(ABC):
     """Base Problem"""
 
-    def __init__(self, driver: BaseDriver,
-                 transformers: Optional[List[BaseTransformer]] = None):
+    def __init__(
+        self,
+        driver: Union[LegacyBaseDriver, BaseDriver],
+        transformers: Optional[List[Union[LegacyBaseTransformer, BaseTransformer]]] = None,
+    ):
         """
 
         Args:
             driver: A driver encoding the molecule information.
-            transformers: A list of transformations to be applied to the molecule.
+            transformers: A list of transformations to be applied to the driver result.
+
+        Raises:
+            QiskitNatureError: if the driver or any transformer of the legacy stack are mixed with
+                their implementations since version 0.2.0.
         """
 
         self.driver = driver
         self.transformers = transformers or []
 
-        self._molecule_data: Union[QMolecule, WatsonHamiltonian] = None
-        self._molecule_data_transformed: Union[QMolecule, WatsonHamiltonian] = None
+        self._legacy_driver = isinstance(driver, LegacyBaseDriver)
 
-    @property
-    def molecule_data(self) -> Union[QMolecule, WatsonHamiltonian]:
+        legacy_transformer_present = any(
+            isinstance(trafo, LegacyBaseTransformer) for trafo in self.transformers
+        )
+        new_transformer_present = any(
+            isinstance(trafo, BaseTransformer) for trafo in self.transformers
+        )
+
+        if legacy_transformer_present and new_transformer_present:
+            raise QiskitNatureError(
+                "A mix of current and deprecated transformers is not supported!"
+            )
+
+        if not self._legacy_driver and legacy_transformer_present:
+            # a LegacyBaseTransformer cannot transform the Property results produced by the new
+            # drivers.
+            raise QiskitNatureError(
+                "The deprecated transformers do not support transforming the new Property-based "
+                "drivers!"
+            )
+
+        if self._legacy_driver and new_transformer_present:
+            # a LegacyBaseDriver produces a LegacyDriverResult which cannot be transformed by the
+            # Property-based transformers. However, the LegacyDriverResult can be converted before
+            # iterating through the transformers.
+            warnings.warn(
+                "Mixing a deprecated driver with Property-based transformers is not advised. Please"
+                " consider switching to the new Property-based drivers in "
+                "qiskit_nature.drivers.second_quantization",
+                UserWarning,
+            )
+
+        self._legacy_transform = self._legacy_driver and legacy_transformer_present
+
+        self._molecule_data: Optional[LegacyDriverResult] = None
+        self._molecule_data_transformed: Optional[LegacyDriverResult] = None
+
+        self._grouped_property: Optional[GroupedSecondQuantizedProperty] = None
+        self._grouped_property_transformed: Optional[GroupedSecondQuantizedProperty] = None
+
+    @property  # type: ignore[misc]
+    @deprecate_property(
+        "0.2.0",
+        new_type=DeprecatedType.PROPERTY,
+        new_name="grouped_property",
+    )
+    def molecule_data(self) -> Optional[LegacyDriverResult]:
         """Returns the raw molecule data object."""
         return self._molecule_data
 
-    @property
-    def molecule_data_transformed(self) -> Union[QMolecule, WatsonHamiltonian]:
+    @property  # type: ignore[misc]
+    @deprecate_property(
+        "0.2.0",
+        new_type=DeprecatedType.PROPERTY,
+        new_name="grouped_property_transformed",
+    )
+    def molecule_data_transformed(self) -> Optional[LegacyDriverResult]:
         """Returns the raw transformed molecule data object."""
         return self._molecule_data_transformed
+
+    @property
+    def grouped_property(self) -> Optional[GroupedSecondQuantizedProperty]:
+        """Returns the
+        :class:`~qiskit_nature.properties.second-quantization.GroupedSecondQuantizedProperty`
+        object."""
+        return self._grouped_property
+
+    @property
+    def grouped_property_transformed(self) -> Optional[GroupedSecondQuantizedProperty]:
+        """Returns the transformed
+        :class:`~qiskit_nature.properties.second-quantization.GroupedSecondQuantizedProperty`
+        object."""
+        return self._grouped_property_transformed
 
     @property
     def num_particles(self) -> Optional[Tuple[int, int]]:
@@ -88,7 +165,7 @@ class BaseProblem(ABC):
 
     @abstractmethod
     def interpret(self, raw_result: EigenstateResult) -> EigenstateResult:
-        """Interprets an EigenstateResult in the context of this transformation.
+        """Interprets an EigenstateResult in the context of this problem.
 
         Args:
             raw_result: an eigenstate result object.
@@ -100,8 +177,9 @@ class BaseProblem(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_default_filter_criterion(self) -> Optional[Callable[[Union[List, np.ndarray], float,
-                                                                 Optional[List[float]]], bool]]:
+    def get_default_filter_criterion(
+        self,
+    ) -> Optional[Callable[[Union[List, np.ndarray], float, Optional[List[float]]], bool]]:
         """Returns a default filter criterion method to filter the eigenvalues computed by the
         eigen solver. For more information see also
         qiskit.algorithms.eigen_solvers.NumPyEigensolver.filter_criterion.
@@ -113,13 +191,20 @@ class BaseProblem(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def hopping_qeom_ops(self, qubit_converter: QubitConverter,
-                         excitations: Union[str, int, List[int],
-                                            Callable[[int, Tuple[int, int]],
-                                                     List[Tuple[Tuple[int, ...], Tuple[
-                                                         int, ...]]]]] = 'sd',
-                         ) -> Tuple[Dict[str, PauliSumOp], Dict[str, List[bool]],
-                                    Dict[str, Tuple[Tuple[int, ...], Tuple[int, ...]]]]:
+    def hopping_qeom_ops(
+        self,
+        qubit_converter: QubitConverter,
+        excitations: Union[
+            str,
+            int,
+            List[int],
+            Callable[[int, Tuple[int, int]], List[Tuple[Tuple[int, ...], Tuple[int, ...]]]],
+        ] = "sd",
+    ) -> Tuple[
+        Dict[str, PauliSumOp],
+        Dict[str, List[bool]],
+        Dict[str, Tuple[Tuple[int, ...], Tuple[int, ...]]],
+    ]:
         """Generates the hopping operators and their commutativity information for the specified set
         of excitations.
 

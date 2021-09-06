@@ -14,10 +14,10 @@
 
 import importlib
 import logging
-from enum import Enum
 from typing import Optional, Union, List
 
 from qiskit.utils.validation import validate_min
+from qiskit.exceptions import MissingOptionalLibraryError
 
 from ..qmolecule import QMolecule
 from .integrals import compute_integrals
@@ -25,38 +25,55 @@ from ..fermionic_driver import FermionicDriver, HFMethodType
 from ..molecule import Molecule
 from ..units_type import UnitsType
 from ...exceptions import QiskitNatureError
+from ...deprecation import (
+    DeprecatedType,
+    warn_deprecated_same_type_name,
+    DeprecatedEnum,
+    DeprecatedEnumMeta,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class InitialGuess(Enum):
-    """ Initial Guess Enum """
-    MINAO = 'minao'
-    HCORE = '1e'
-    ONE_E = '1e'
-    ATOM = 'atom'
+class InitialGuess(DeprecatedEnum, metaclass=DeprecatedEnumMeta):
+    """Initial Guess Enum"""
+
+    MINAO = "minao"
+    HCORE = "1e"
+    ONE_E = "1e"
+    ATOM = "atom"
+
+    def deprecate(self):
+        """show deprecate message"""
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.ENUM,
+            self.__class__.__name__,
+            "from qiskit_nature.drivers.second_quantization as a direct replacement",
+            3,
+        )
 
 
 class PySCFDriver(FermionicDriver):
-    """
-    Qiskit chemistry driver using the PySCF library.
+    """**DEPRECATED** Qiskit Nature driver using the PySCF library.
 
-    See https://sunqm.github.io/pyscf/
+    See https://pyscf.org/install.html
     """
 
-    def __init__(self,
-                 atom: Union[str, List[str]] =
-                 'H 0.0 0.0 0.0; H 0.0 0.0 0.735',
-                 unit: UnitsType = UnitsType.ANGSTROM,
-                 charge: int = 0,
-                 spin: int = 0,
-                 basis: str = 'sto3g',
-                 hf_method: HFMethodType = HFMethodType.RHF,
-                 conv_tol: float = 1e-9,
-                 max_cycle: int = 50,
-                 init_guess: InitialGuess = InitialGuess.MINAO,
-                 max_memory: Optional[int] = None,
-                 molecule: Optional[Molecule] = None) -> None:
+    def __init__(
+        self,
+        atom: Union[str, List[str]] = "H 0.0 0.0 0.0; H 0.0 0.0 0.735",
+        unit: UnitsType = UnitsType.ANGSTROM,
+        charge: int = 0,
+        spin: int = 0,
+        basis: str = "sto3g",
+        hf_method: Optional[HFMethodType] = None,
+        conv_tol: float = 1e-9,
+        max_cycle: int = 50,
+        init_guess: Optional[InitialGuess] = None,
+        max_memory: Optional[int] = None,
+        molecule: Optional[Molecule] = None,
+    ) -> None:
         """
         Args:
             atom: Atom list or string separated by semicolons or line breaks. Each element in the
@@ -66,7 +83,7 @@ class PySCFDriver(FermionicDriver):
             charge: Charge on the molecule
             spin: Spin (2S), in accordance with how PySCF defines a molecule in pyscf.gto.mole.Mole
             basis: Basis set name as recognized by PySCF, e.g. `sto3g`, `321g` etc.
-                See https://sunqm.github.io/pyscf/_modules/pyscf/gto/basis.html for a listing.
+                See https://pyscf.org/user/gto.html for a listing.
                 Defaults to the minimal basis 'sto3g'.
             hf_method: Hartree-Fock Method type
             conv_tol: Convergence tolerance see PySCF docs and pyscf/scf/hf.py
@@ -84,20 +101,32 @@ class PySCFDriver(FermionicDriver):
         Raises:
             QiskitNatureError: Invalid Input
         """
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.CLASS,
+            "PySCFDriver",
+            "from qiskit_nature.drivers.second_quantization.pyscfd",
+        )
         self._check_valid()
         if not isinstance(atom, str) and not isinstance(atom, list):
             raise QiskitNatureError("Invalid atom input for PYSCF Driver '{}'".format(atom))
+        if hf_method is None:
+            hf_method = HFMethodType.RHF
+        if init_guess is None:
+            init_guess = InitialGuess.MINAO
 
         if isinstance(atom, list):
-            atom = ';'.join(atom)
+            atom = ";".join(atom)
         elif isinstance(atom, str):
-            atom = atom.replace('\n', ';')
+            atom = atom.replace("\n", ";")
 
-        validate_min('max_cycle', max_cycle, 1)
-        super().__init__(molecule=molecule,
-                         basis=basis,
-                         hf_method=hf_method.value,
-                         supports_molecule=True)
+        validate_min("max_cycle", max_cycle, 1)
+        super().__init__(
+            molecule=molecule,
+            basis=basis,
+            hf_method=hf_method.value,
+            supports_molecule=True,
+        )
         self._atom = atom
         self._units = unit.value
         self._charge = charge
@@ -109,21 +138,36 @@ class PySCFDriver(FermionicDriver):
 
     @staticmethod
     def _check_valid():
-        err_msg = "PySCF is not installed. See https://sunqm.github.io/pyscf/install.html"
+        """Checks that PySCF is actually installed.
+
+        Raises:
+            MissingOptionalLibraryError: If PySCF is not installed.
+        """
         try:
-            spec = importlib.util.find_spec('pyscf')
+            spec = importlib.util.find_spec("pyscf")  # type: ignore
             if spec is not None:
                 return
         except Exception as ex:  # pylint: disable=broad-except
-            logger.debug('PySCF check error %s', str(ex))
-            raise QiskitNatureError(err_msg) from ex
+            logger.debug("PySCF check error %s", str(ex))
+            raise MissingOptionalLibraryError(
+                libname="PySCF",
+                name="PySCFDriver",
+                pip_install="pip install 'qiskit-nature[pyscf]'",
+                msg="See https://pyscf.org/install.html",
+            ) from ex
 
-        raise QiskitNatureError(err_msg)
+        raise MissingOptionalLibraryError(
+            libname="PySCF",
+            name="PySCFDriver",
+            pip_install="pip install 'qiskit-nature[pyscf]'",
+            msg="See https://pyscf.org/install.html",
+        )
 
     def run(self) -> QMolecule:
         if self.molecule is not None:
-            atom = ';'.join([name + ' ' + ' '.join(map(str, coord))
-                             for (name, coord) in self.molecule.geometry])
+            atom = ";".join(
+                [name + " " + " ".join(map(str, coord)) for (name, coord) in self.molecule.geometry]
+            )
             charge = self.molecule.charge
             spin = self.molecule.multiplicity - 1
             units = self.molecule.units.value
@@ -136,29 +180,33 @@ class PySCFDriver(FermionicDriver):
         basis = self.basis
         hf_method = self.hf_method
 
-        q_mol = compute_integrals(atom=atom,
-                                  unit=units,
-                                  charge=charge,
-                                  spin=spin,
-                                  basis=basis,
-                                  hf_method=hf_method,
-                                  conv_tol=self._conv_tol,
-                                  max_cycle=self._max_cycle,
-                                  init_guess=self._init_guess,
-                                  max_memory=self._max_memory)
+        q_mol = compute_integrals(
+            atom=atom,
+            unit=units,
+            charge=charge,
+            spin=spin,
+            basis=basis,
+            hf_method=hf_method,
+            conv_tol=self._conv_tol,
+            max_cycle=self._max_cycle,
+            init_guess=self._init_guess,
+            max_memory=self._max_memory,
+        )
 
-        q_mol.origin_driver_name = 'PYSCF'
-        cfg = ['atom={}'.format(atom),
-               'unit={}'.format(units),
-               'charge={}'.format(charge),
-               'spin={}'.format(spin),
-               'basis={}'.format(basis),
-               'hf_method={}'.format(hf_method),
-               'conv_tol={}'.format(self._conv_tol),
-               'max_cycle={}'.format(self._max_cycle),
-               'init_guess={}'.format(self._init_guess),
-               'max_memory={}'.format(self._max_memory),
-               '']
-        q_mol.origin_driver_config = '\n'.join(cfg)
+        q_mol.origin_driver_name = "PYSCF"
+        cfg = [
+            "atom={}".format(atom),
+            "unit={}".format(units),
+            "charge={}".format(charge),
+            "spin={}".format(spin),
+            "basis={}".format(basis),
+            "hf_method={}".format(hf_method),
+            "conv_tol={}".format(self._conv_tol),
+            "max_cycle={}".format(self._max_cycle),
+            "init_guess={}".format(self._init_guess),
+            "max_memory={}".format(self._max_memory),
+            "",
+        ]
+        q_mol.origin_driver_config = "\n".join(cfg)
 
         return q_mol

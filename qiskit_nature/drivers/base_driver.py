@@ -19,19 +19,19 @@ from abc import ABC, abstractmethod
 
 from .molecule import Molecule
 from ..exceptions import QiskitNatureError
+from ..deprecation import DeprecatedType, warn_deprecated_same_type_name
 
 
 class BaseDriver(ABC):
-    """
-    Base class for Qiskit's chemistry drivers.
-    """
+    """**DEPRECATED** Base class for Qiskit Nature drivers."""
 
-    @abstractmethod
-    def __init__(self,
-                 molecule: Optional[Molecule] = None,
-                 basis: str = 'sto3g',
-                 hf_method: str = 'rhf',
-                 supports_molecule: bool = False) -> None:
+    def __init__(
+        self,
+        molecule: Optional[Molecule] = None,
+        basis: str = "sto3g",
+        hf_method: str = "rhf",
+        supports_molecule: bool = False,
+    ) -> None:
         """
         Args:
             molecule: molecule
@@ -42,6 +42,14 @@ class BaseDriver(ABC):
         Raises:
             QiskitNatureError: Molecule passed but driver doesn't support it.
         """
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.CLASS,
+            "BaseDriver",
+            "from qiskit_nature.drivers.second_quantization",
+            3,
+        )
+
         if molecule is not None and not supports_molecule:
             raise QiskitNatureError("Driver doesn't support molecule.")
 
@@ -69,32 +77,32 @@ class BaseDriver(ABC):
 
     @property
     def molecule(self) -> Optional[Molecule]:
-        """ return molecule """
+        """return molecule"""
         return self._molecule
 
     @molecule.setter
     def molecule(self, value: Molecule) -> None:
-        """ set molecule """
+        """set molecule"""
         if not self.supports_molecule:
             raise QiskitNatureError("Driver doesn't support molecule.")
         self._molecule = value
 
     @property
     def basis(self) -> str:
-        """ return basis """
+        """return basis"""
         return self._basis
 
     @basis.setter
     def basis(self, value: str) -> None:
-        """ set basis """
+        """set basis"""
         self._basis = value
 
     @property
     def hf_method(self) -> str:
-        """ return Hartree-Fock method """
+        """return Hartree-Fock method"""
         return self._hf_method
 
     @hf_method.setter
     def hf_method(self, value: str) -> None:
-        """ set Hartree-Fock method """
+        """set Hartree-Fock method"""
         self._hf_method = value

@@ -91,7 +91,7 @@ Algorithms that can compute potential energy surfaces.
    :toctree: ../stubs/
    :nosignatures:
 
-   BOPESSampler
+   ~pes_samplers.BOPESSampler
 
 The samplers include extrapolators to facilitate convergence across a set of points and support
 of various potentials. More detail may be found in the sub-module linked below
@@ -103,25 +103,36 @@ of various potentials. More detail may be found in the sub-module linked below
 
 """
 
-from .excited_states_solvers import (ExcitedStatesEigensolver, ExcitedStatesSolver, QEOM,
-                                     EigensolverFactory, NumPyEigensolverFactory)
-from .ground_state_solvers import (AdaptVQE, GroundStateEigensolver, GroundStateSolver,
-                                   MinimumEigensolverFactory, NumPyMinimumEigensolverFactory,
-                                   VQEUCCFactory, VQEUVCCFactory)
+from .excited_states_solvers import (
+    ExcitedStatesEigensolver,
+    ExcitedStatesSolver,
+    QEOM,
+    EigensolverFactory,
+    NumPyEigensolverFactory,
+)
+from .ground_state_solvers import (
+    AdaptVQE,
+    GroundStateEigensolver,
+    GroundStateSolver,
+    MinimumEigensolverFactory,
+    NumPyMinimumEigensolverFactory,
+    VQEUCCFactory,
+    VQEUVCCFactory,
+)
 from .pes_samplers import BOPESSampler
 
 __all__ = [
-    'ExcitedStatesEigensolver',
-    'ExcitedStatesSolver',
-    'QEOM',
-    'EigensolverFactory',
-    'NumPyEigensolverFactory',
-    'AdaptVQE',
-    'GroundStateEigensolver',
-    'GroundStateSolver',
-    'MinimumEigensolverFactory',
-    'NumPyMinimumEigensolverFactory',
-    'VQEUCCFactory',
-    'VQEUVCCFactory',
-    'BOPESSampler',
+    "ExcitedStatesEigensolver",
+    "ExcitedStatesSolver",
+    "QEOM",
+    "EigensolverFactory",
+    "NumPyEigensolverFactory",
+    "AdaptVQE",
+    "GroundStateEigensolver",
+    "GroundStateSolver",
+    "MinimumEigensolverFactory",
+    "NumPyMinimumEigensolverFactory",
+    "VQEUCCFactory",
+    "VQEUVCCFactory",
+    "BOPESSampler",
 ]

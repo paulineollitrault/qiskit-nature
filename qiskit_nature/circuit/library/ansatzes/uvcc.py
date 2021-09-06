@@ -12,17 +12,18 @@
 
 """ The Unitary Vibrational Coupled-Cluster Single and Double excitations Ansatz. """
 
+import logging
 from functools import partial
 from typing import Callable, List, Optional, Sequence, Tuple, Union
 
-import logging
-
 from qiskit.circuit import QuantumCircuit
-from qiskit.opflow import PauliTrotterEvolution
+from qiskit.circuit.library import EvolvedOperatorAnsatz
+from qiskit.opflow import OperatorBase, PauliTrotterEvolution
+
 from qiskit_nature import QiskitNatureError
-from qiskit_nature.operators.second_quantization import SecondQuantizedOp, VibrationalOp
 from qiskit_nature.converters.second_quantization import QubitConverter
-from .evolved_operator_ansatz import EvolvedOperatorAnsatz
+from qiskit_nature.operators.second_quantization import SecondQuantizedOp, VibrationalOp
+
 from .utils.vibration_excitation_generator import generate_vibration_excitations
 
 logger = logging.getLogger(__name__)
@@ -36,21 +37,30 @@ class UVCC(EvolvedOperatorAnsatz):
     """
 
     EXCITATION_TYPE = {
-        's': 1,
-        'd': 2,
-        't': 3,
-        'q': 4,
+        "s": 1,
+        "d": 2,
+        "t": 3,
+        "q": 4,
     }
 
-    def __init__(self,
-                 qubit_converter: Optional[QubitConverter] = None,
-                 num_modals: Optional[List[int]] = None,
-                 excitations: Optional[Union[str, int, List[int],
-                                             Callable[[int, Tuple[int, int]],
-                                                      List[Tuple[Tuple[int, ...], Tuple[int, ...]]]]
-                                             ]] = None,
-                 reps: int = 1,
-                 initial_state: Optional[QuantumCircuit] = None):
+    def __init__(
+        self,
+        qubit_converter: Optional[QubitConverter] = None,
+        num_modals: Optional[List[int]] = None,
+        excitations: Optional[
+            Union[
+                str,
+                int,
+                List[int],
+                Callable[
+                    [int, Tuple[int, int]],
+                    List[Tuple[Tuple[int, ...], Tuple[int, ...]]],
+                ],
+            ]
+        ] = None,
+        reps: int = 1,
+        initial_state: Optional[QuantumCircuit] = None,
+    ):
         """
 
         Args:
@@ -74,7 +84,7 @@ class UVCC(EvolvedOperatorAnsatz):
                     (with identical types to those explained above) and must return a
                     `List[Tuple[Tuple[int, ...], Tuple[int, ...]]]`. For more information on how to
                     write such a callable refer to the default method
-                    :meth:`generate_vibration_excitations`.
+                    :meth:`~qiskit_nature.circuit.library.ansatzes.utils.generate_vibration_excitations`.
             reps: number of repetitions of basic module
             initial_state: A `QuantumCircuit` object to prepend to the circuit.
         """
@@ -129,18 +139,20 @@ class UVCC(EvolvedOperatorAnsatz):
     def _check_configuration(self, raise_on_failure: bool = True) -> bool:
         if self.num_modals is None or any(b < 0 for b in self.num_modals):
             if raise_on_failure:
-                raise ValueError('The number of modals cannot contain negative values but is ',
-                                 self.num_modals)
+                raise ValueError(
+                    "The number of modals cannot contain negative values but is ",
+                    self.num_modals,
+                )
             return False
 
         if self.excitations is None:
             if raise_on_failure:
-                raise ValueError('The excitations cannot be `None`.')
+                raise ValueError("The excitations cannot be `None`.")
             return False
 
         if self.qubit_converter is None:
             if raise_on_failure:
-                raise ValueError('The qubit_converter cannot be `None`.')
+                raise ValueError("The qubit_converter cannot be `None`.")
             return False
 
         return True
@@ -149,13 +161,15 @@ class UVCC(EvolvedOperatorAnsatz):
         if self._data is not None:
             return
 
+        self.operators: Optional[Union[OperatorBase, QuantumCircuit, list]]
+
         if self.operators is None or self.operators == [None]:
             excitation_ops = self.excitation_ops()
 
-            logger.debug('Converting SecondQuantizedOps into PauliSumOps...')
+            logger.debug("Converting SecondQuantizedOps into PauliSumOps...")
             self.operators = self.qubit_converter.convert_match(excitation_ops, suppress_none=True)
 
-        logger.debug('Building QuantumCircuit...')
+        logger.debug("Building QuantumCircuit...")
         super()._build()
 
     def excitation_ops(self) -> List[SecondQuantizedOp]:
@@ -172,7 +186,7 @@ class UVCC(EvolvedOperatorAnsatz):
 
         excitations = self._get_excitation_list()
 
-        logger.debug('Converting excitations into SecondQuantizedOps...')
+        logger.debug("Converting excitations into SecondQuantizedOps...")
         excitation_ops = self._build_vibration_excitation_ops(excitations)
 
         self._excitation_ops = excitation_ops
@@ -181,36 +195,44 @@ class UVCC(EvolvedOperatorAnsatz):
     def _get_excitation_list(self) -> List[Tuple[Tuple[int, ...], Tuple[int, ...]]]:
         generators = self._get_excitation_generators()
 
-        logger.debug('Generating excitation list...')
+        logger.debug("Generating excitation list...")
         excitations = []
         for gen in generators:
-            excitations.extend(gen(
-                num_modals=self.num_modals,
-            ))
+            excitations.extend(
+                gen(
+                    num_modals=self.num_modals,
+                )
+            )
 
         return excitations
 
     def _get_excitation_generators(self) -> List[Callable]:
-        logger.debug('Gathering excitation generators...')
+        logger.debug("Gathering excitation generators...")
         generators: List[Callable] = []
 
         if isinstance(self.excitations, str):
             for exc in self.excitations:
-                generators.append(partial(
-                    generate_vibration_excitations,
-                    num_excitations=self.EXCITATION_TYPE[exc],
-                ))
+                generators.append(
+                    partial(
+                        generate_vibration_excitations,
+                        num_excitations=self.EXCITATION_TYPE[exc],
+                    )
+                )
         elif isinstance(self.excitations, int):
-            generators.append(partial(
-                generate_vibration_excitations,
-                num_excitations=self.excitations,
-            ))
+            generators.append(
+                partial(
+                    generate_vibration_excitations,
+                    num_excitations=self.excitations,
+                )
+            )
         elif isinstance(self.excitations, list):
             for exc in self.excitations:  # type: ignore
-                generators.append(partial(
-                    generate_vibration_excitations,
-                    num_excitations=exc,
-                ))
+                generators.append(
+                    partial(
+                        generate_vibration_excitations,
+                        num_excitations=exc,
+                    )
+                )
         elif callable(self.excitations):
             generators = [self.excitations]
         else:
@@ -233,16 +255,16 @@ class UVCC(EvolvedOperatorAnsatz):
         sum_modes = sum(self.num_modals)
 
         for exc in excitations:
-            label = ['I'] * sum_modes
+            label = ["I"] * sum_modes
             for occ in exc[0]:
-                label[occ] = '+'
+                label[occ] = "+"
             for unocc in exc[1]:
-                label[unocc] = '-'
-            op = VibrationalOp(''.join(label), len(self.num_modals), self.num_modals)
+                label[unocc] = "-"
+            op = VibrationalOp("".join(label), len(self.num_modals), self.num_modals)
             op -= op.adjoint()
             # we need to account for an additional imaginary phase in the exponent (see also
             # `PauliTrotterEvolution.convert`)
-            op *= 1j
+            op *= 1j  # type: ignore
             operators.append(op)
 
         return operators

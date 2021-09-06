@@ -21,14 +21,15 @@ from .qubit_mapper import QubitMapper
 
 
 class FermionicMapper(QubitMapper):
-    """ Mapper of Fermionic Operator to Qubit Operator """
+    """Mapper of Fermionic Operator to Qubit Operator"""
 
     @abstractmethod
     def map(self, second_q_op: FermionicOp) -> PauliSumOp:
-        """Maps a class:`FermionicOp` to a `PauliSumOp`.
+        """Maps a :class:`~qiskit_nature.operators.second_quantization.FermionicOp`
+        to a `PauliSumOp`.
 
         Args:
-            second_q_op: the :class:`FermionicOp` to be mapped.
+            second_q_op: the `FermionicOp` to be mapped.
 
         Returns:
             The `PauliSumOp` corresponding to the problem-Hamiltonian in the qubit space.

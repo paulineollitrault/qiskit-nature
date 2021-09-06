@@ -13,7 +13,6 @@
 """ Gaussian Forces Driver """
 
 from typing import Union, List, Optional
-import logging
 
 from ..watson_hamiltonian import WatsonHamiltonian
 from ..units_type import UnitsType
@@ -23,8 +22,7 @@ from ...exceptions import QiskitNatureError
 from .gaussian_utils import check_valid
 from .gaussian_log_driver import GaussianLogDriver
 from .gaussian_log_result import GaussianLogResult
-
-logger = logging.getLogger(__name__)
+from ...deprecation import DeprecatedType, warn_deprecated_same_type_name
 
 B3YLP_JCF_DEFAULT = """
 #p B3LYP/cc-pVTZ Freq=(Anharm) Int=Ultrafine SCF=VeryTight
@@ -40,14 +38,16 @@ O        -1.796073    1.479446    0.481721
 
 
 class GaussianForcesDriver(BosonicDriver):
-    """  Gaussian™ 16 forces driver. """
+    """**DEPRECATED** Gaussian™ 16 forces driver."""
 
-    def __init__(self,
-                 jcf: Union[str, List[str]] = B3YLP_JCF_DEFAULT,
-                 logfile: Optional[str] = None,
-                 molecule: Optional[Molecule] = None,
-                 basis: str = 'sto-3g',
-                 normalize: bool = True) -> None:
+    def __init__(
+        self,
+        jcf: Union[str, List[str]] = B3YLP_JCF_DEFAULT,
+        logfile: Optional[str] = None,
+        molecule: Optional[Molecule] = None,
+        basis: str = "sto-3g",
+        normalize: bool = True,
+    ) -> None:
         r"""
         Args:
             jcf: A job control file conforming to Gaussian™ 16 format. This can
@@ -67,10 +67,13 @@ class GaussianForcesDriver(BosonicDriver):
             QiskitNatureError: If `jcf` or `molecule` given and Gaussian™ 16 executable
                 cannot be located.
         """
-        super().__init__(molecule=molecule,
-                         basis=basis,
-                         hf_method='',
-                         supports_molecule=True)
+        warn_deprecated_same_type_name(
+            "0.2.0",
+            DeprecatedType.CLASS,
+            "GaussianForcesDriver",
+            "from qiskit_nature.drivers.second_quantization.gaussiand",
+        )
+        super().__init__(molecule=molecule, basis=basis, hf_method="", supports_molecule=True)
         self._jcf = jcf
         self._logfile = None
         self._normalize = normalize
@@ -99,15 +102,16 @@ class GaussianForcesDriver(BosonicDriver):
 
     def _from_molecule_to_str(self) -> str:
         if self.molecule.units == UnitsType.ANGSTROM:
-            units = 'Angstrom'
+            units = "Angstrom"
         elif self.molecule.units == UnitsType.BOHR:
-            units = 'Bohr'
+            units = "Bohr"
         else:
             raise QiskitNatureError("Unknown unit '{}'".format(self.molecule.units.value))
-        cfg1 = f'#p B3LYP/{self.basis} UNITS={units} Freq=(Anharm) Int=Ultrafine SCF=VeryTight\n\n'
-        name = ''.join([name for (name, _) in self.molecule.geometry])
-        geom = '\n'.join([name + ' ' + ' '.join(map(str, coord))
-                          for (name, coord) in self.molecule.geometry])
-        cfg2 = f'{name} geometry optimization\n\n'
-        cfg3 = f'{self.molecule.charge} {self.molecule.multiplicity}\n{geom}\n\n'
+        cfg1 = f"#p B3LYP/{self.basis} UNITS={units} Freq=(Anharm) Int=Ultrafine SCF=VeryTight\n\n"
+        name = "".join([name for (name, _) in self.molecule.geometry])
+        geom = "\n".join(
+            [name + " " + " ".join(map(str, coord)) for (name, coord) in self.molecule.geometry]
+        )
+        cfg2 = f"{name} geometry optimization\n\n"
+        cfg3 = f"{self.molecule.charge} {self.molecule.multiplicity}\n{geom}\n\n"
         return cfg1 + cfg2 + cfg3

@@ -17,4 +17,11 @@ from qiskit.exceptions import QiskitError
 
 class QiskitNatureError(QiskitError):
     """Class for errors returned by Qiskit's Nature module."""
+
+    pass
+
+
+class UnsupportMethodError(QiskitNatureError):
+    """Class used if a driver doesn't support given method."""
+
     pass
