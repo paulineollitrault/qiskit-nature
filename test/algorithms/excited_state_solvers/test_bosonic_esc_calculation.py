@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020, 2021.
+# (C) Copyright IBM 2020, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,13 +12,15 @@
 
 """ Test Numerical qEOM excited states calculation """
 
+import contextlib
+import io
 import unittest
 import warnings
 
 from test import QiskitNatureTestCase
 
-from qiskit import BasicAer
-from qiskit.utils import algorithm_globals, QuantumInstance
+import qiskit
+from qiskit.utils import algorithm_globals, QuantumInstance, optionals
 from qiskit.algorithms.optimizers import COBYLA
 
 from qiskit_nature.drivers import WatsonHamiltonian
@@ -107,11 +109,12 @@ class TestBosonicESCCalculation(QiskitNatureTestCase):
         for idx, energy in enumerate(self.reference_energies):
             self.assertAlmostEqual(results.computed_vibrational_energies[idx], energy, places=4)
 
+    @unittest.skipUnless(optionals.HAS_AER, "qiskit-aer is required to run this test")
     def test_vqe_uvccsd_factory(self):
         """Test with VQE plus UVCCSD"""
         optimizer = COBYLA(maxiter=5000)
         solver = VQEUVCCFactory(
-            QuantumInstance(BasicAer.get_backend("statevector_simulator")),
+            QuantumInstance(qiskit.Aer.get_backend("aer_simulator_statevector")),
             optimizer=optimizer,
         )
         gsc = GroundStateEigensolver(self.qubit_converter, solver)
@@ -119,6 +122,29 @@ class TestBosonicESCCalculation(QiskitNatureTestCase):
         results = esc.solve(self.vibrational_problem)
         for idx, energy in enumerate(self.reference_energies):
             self.assertAlmostEqual(results.computed_vibrational_energies[idx], energy, places=1)
+
+    @unittest.skipUnless(optionals.HAS_AER, "qiskit-aer is required to run this test")
+    def test_vqe_uvccsd_with_callback(self):
+        """Test VQE UVCCSD with callback."""
+
+        def cb_callback(nfev, parameters, energy, stddev):
+            print(f"iterations {nfev}: energy: {energy}")
+
+        optimizer = COBYLA(maxiter=5000)
+        solver = VQEUVCCFactory(
+            QuantumInstance(qiskit.Aer.get_backend("aer_simulator_statevector")),
+            optimizer=optimizer,
+            callback=cb_callback,
+        )
+        gsc = GroundStateEigensolver(self.qubit_converter, solver)
+        esc = QEOM(gsc, "sd")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            results = esc.solve(self.vibrational_problem)
+        for idx, energy in enumerate(self.reference_energies):
+            self.assertAlmostEqual(results.computed_vibrational_energies[idx], energy, places=1)
+        for idx, line in enumerate(out.getvalue().split("\n")):
+            if line.strip():
+                self.assertTrue(line.startswith(f"iterations {idx+1}: energy: "))
 
 
 if __name__ == "__main__":

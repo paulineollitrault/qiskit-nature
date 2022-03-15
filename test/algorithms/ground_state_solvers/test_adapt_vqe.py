@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020, 2021.
+# (C) Copyright IBM 2020, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -11,12 +11,14 @@
 # that they have been altered from the originals.
 
 """ Test of the Adaptive VQE ground state calculations """
+import contextlib
 import copy
+import io
 import unittest
 
 from typing import cast
 
-from test import QiskitNatureTestCase, requires_extra_library
+from test import QiskitNatureTestCase
 
 import numpy as np
 
@@ -40,12 +42,13 @@ from qiskit_nature.properties.second_quantization.electronic.integrals import (
     OneBodyElectronicIntegrals,
     TwoBodyElectronicIntegrals,
 )
+import qiskit_nature.optionals as _optionals
 
 
 class TestAdaptVQE(QiskitNatureTestCase):
     """Test Adaptive VQE Ground State Calculation"""
 
-    @requires_extra_library
+    @unittest.skipIf(not _optionals.HAS_PYSCF, "pyscf not available.")
     def setUp(self):
         super().setUp()
 
@@ -66,6 +69,39 @@ class TestAdaptVQE(QiskitNatureTestCase):
         res = calc.solve(self.problem)
         self.assertAlmostEqual(res.electronic_energies[0], self.expected, places=6)
 
+    def test_print_result(self):
+        """Regression test against issues with printing results."""
+        solver = VQEUCCFactory(QuantumInstance(BasicAer.get_backend("statevector_simulator")))
+        calc = AdaptVQE(self.qubit_converter, solver)
+        res = calc.solve(self.problem)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            print(res)
+        # do NOT change the below! Lines have been truncated as to not force exact numerical matches
+        expected = """\
+            === GROUND STATE ENERGY ===
+
+            * Electronic ground state energy (Hartree): -1.857
+              - computed part:      -1.857
+            ~ Nuclear repulsion energy (Hartree): 0.719
+            > Total ground state energy (Hartree): -1.137
+
+            === MEASURED OBSERVABLES ===
+
+              0:  # Particles: 2.000 S: 0.000 S^2: 0.000 M: 0.000
+
+            === DIPOLE MOMENTS ===
+
+            ~ Nuclear dipole moment (a.u.): [0.0  0.0  1.38
+
+              0:
+              * Electronic dipole moment (a.u.): [0.0  0.0  1.38
+                - computed part:      [0.0  0.0  1.38
+              > Dipole moment (a.u.): [0.0  0.0  0.0]  Total: 0.
+                             (debye): [0.0  0.0  0.0]  Total: 0.
+        """
+        for truth, expected in zip(out.getvalue().split("\n"), expected.split("\n")):
+            assert truth.strip().startswith(expected.strip())
+
     def test_aux_ops_reusability(self):
         """Test that the auxiliary operators can be reused"""
         # Regression test against #1475
@@ -75,12 +111,16 @@ class TestAdaptVQE(QiskitNatureTestCase):
         modes = 4
         h_1 = np.eye(modes, dtype=complex)
         h_2 = np.zeros((modes, modes, modes, modes))
-        aux_ops = ElectronicEnergy(
-            [
-                OneBodyElectronicIntegrals(ElectronicBasis.MO, (h_1, None)),
-                TwoBodyElectronicIntegrals(ElectronicBasis.MO, (h_2, None, None, None)),
-            ]
-        ).second_q_ops()
+        aux_ops = list(
+            ElectronicEnergy(
+                [
+                    OneBodyElectronicIntegrals(ElectronicBasis.MO, (h_1, None)),
+                    TwoBodyElectronicIntegrals(ElectronicBasis.MO, (h_2, None, None, None)),
+                ]
+            )
+            .second_q_ops()
+            .values()
+        )
         aux_ops_copy = copy.deepcopy(aux_ops)
 
         _ = calc.solve(self.problem)
@@ -112,7 +152,7 @@ class TestAdaptVQE(QiskitNatureTestCase):
                 )
                 vqe = VQE(
                     ansatz=ansatz,
-                    quantum_instance=self._quantum_instance,
+                    quantum_instance=self.quantum_instance,
                     optimizer=L_BFGS_B(),
                 )
                 return vqe
@@ -134,7 +174,6 @@ class TestAdaptVQE(QiskitNatureTestCase):
                 # Here, we can create essentially any custom excitation pool.
                 # For testing purposes only, we simply select some hopping operator already
                 # available in the ansatz object.
-                # pylint: disable=no-member
                 custom_excitation_pool = [solver.ansatz.operators[2]]
                 solver.ansatz.operators = custom_excitation_pool
                 return solver

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020, 2021.
+# (C) Copyright IBM 2020, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -21,7 +21,6 @@ from qiskit_nature import QiskitNatureError
 
 
 def parse(fcidump: str) -> Dict[str, Any]:
-    # pylint: disable=wrong-spelling-in-comment
     """Parses a FCIDump output.
 
     Args:
@@ -37,7 +36,7 @@ def parse(fcidump: str) -> Dict[str, Any]:
         with open(fcidump, "r", encoding="utf8") as file:
             fcidump_str = file.read()
     except OSError as ex:
-        raise QiskitNatureError("Input file '{}' cannot be read!".format(fcidump)) from ex
+        raise QiskitNatureError(f"Input file '{fcidump}' cannot be read!") from ex
 
     output = {}  # type: Dict[str, Any]
 
@@ -93,7 +92,7 @@ def parse(fcidump: str) -> Dict[str, Any]:
     # can distinguish between unrestricted and restricted FCIDump files.
     _uhf = bool(
         re.search(
-            r".*(\s+{}\s+{}\s+0\s+0)".format(norb * 2, norb * 2),
+            rf".*(\s+{norb * 2}\s+{norb * 2}\s+0\s+0)",
             fcidump_str[namelist_end.start(0) :],
         )
     )
@@ -127,7 +126,7 @@ def parse(fcidump: str) -> Dict[str, Any]:
         x = float(orbital.split()[0])
         # Note: differing naming than ijkl due to E741 and this iajb is inline with this:
         # https://hande.readthedocs.io/en/latest/manual/integrals.html#fcidump-format
-        i, a, j, b = [int(i) for i in orbital.split()[1:]]  # pylint: disable=invalid-name
+        i, a, j, b = [int(i) for i in orbital.split()[1:]]
         if i == a == j == b == 0:
             output["ecore"] = x
         elif a == j == b == 0:
@@ -143,10 +142,7 @@ def parse(fcidump: str) -> Dict[str, Any]:
                     hij_b[i - 1 - norb][a - 1 - norb] = x
                 else:
                     raise QiskitNatureError(
-                        "Unkown 1-electron integral indices encountered in \
-                            '{}'".format(
-                            (i, a)
-                        )
+                        "Unknown 1-electron integral indices encountered in " f"'{(i, a)}'"
                     ) from ex
         else:
             try:
@@ -166,10 +162,7 @@ def parse(fcidump: str) -> Dict[str, Any]:
                             hijkl_bb[i - 1 - norb][a - 1 - norb][j - 1 - norb][b - 1 - norb] = x
                 else:
                     raise QiskitNatureError(
-                        "Unkown 2-electron integral indices encountered in \
-                            '{}'".format(
-                            (i, a, j, b)
-                        )
+                        "Unknown 2-electron integral indices encountered in " f"'{(i, a, j, b)}'"
                     ) from ex
 
     # iterate over still empty elements in 1-electron matrix and populate with symmetric ones
@@ -220,7 +213,6 @@ def _permute_1e_ints(
 def _permute_2e_ints(
     hijkl: np.ndarray, elements: Set[Tuple[int, ...]], norb: int, beta: int = 0
 ) -> None:
-    # pylint: disable=wrong-spelling-in-comment
     for elem in elements.copy():
         shifted = tuple(e - ((e >= norb) * norb) for e in elem)
         # initially look for "transposed" element if spins are equal

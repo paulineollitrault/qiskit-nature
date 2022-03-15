@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020, 2021.
+# (C) Copyright IBM 2020, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,9 +12,12 @@
 
 """Driver-independent Molecule definition."""
 
-from typing import Callable, Tuple, List, Optional
+from __future__ import annotations
+
+from typing import Callable, Tuple, List, Optional, cast
 import copy
 
+import h5py
 import numpy as np
 import scipy.linalg
 
@@ -34,11 +37,14 @@ class Molecule:
     directly if its needed.
     """
 
+    VERSION = 1
+
     def __init__(
         self,
         geometry: List[Tuple[str, List[float]]],
         multiplicity: int = 1,
         charge: int = 0,
+        units: UnitsType = UnitsType.ANGSTROM,
         degrees_of_freedom: Optional[List[Callable]] = None,
         masses: Optional[List[float]] = None,
     ) -> None:
@@ -46,9 +52,10 @@ class Molecule:
         Args:
             geometry: A list of atoms defining a given molecule where each item in the list
                 is an atom name together with a list of 3 floats representing the x,y and z
-                Cartesian coordinates of the atom's position in units of **Angstrom**.
+                Cartesian coordinates of the atom's position.
             multiplicity: Multiplicity (2S+1) of the molecule
             charge: Charge on the molecule
+            units: the `UnitsType` of the geometry.
             degrees_of_freedom: List of functions taking a
                 perturbation value and geometry and returns a perturbed
                 geometry. Helper functions for typical perturbations are
@@ -63,17 +70,85 @@ class Molecule:
         Molecule._check_consistency(geometry, masses)
 
         self._geometry = geometry
-        self._degrees_of_freedom = degrees_of_freedom
+        self._units = units
+        self._degrees_of_freedom = None
+        self.degrees_of_freedom = degrees_of_freedom
         self._multiplicity = multiplicity
         self._charge = charge
         self._masses = masses
 
         self._perturbations = None  # type: Optional[List[float]]
 
+    def to_hdf5(self, parent: h5py.Group) -> None:
+        """Stores this instance in an HDF5 group inside of the provided parent group.
+
+        See also :func:`~qiskit_nature.hdf5.HDF5Storable.to_hdf5` for more details.
+
+        Args:
+            parent: the parent HDF5 group.
+        """
+        group = parent.require_group(self.__class__.__name__)
+        group.attrs["__class__"] = self.__class__.__name__
+        group.attrs["__module__"] = self.__class__.__module__
+        group.attrs["__version__"] = self.VERSION
+
+        geometry_group = group.create_group("geometry", track_order=True)
+        for idx, geom in enumerate(self._geometry):
+            symbol, coords = geom
+            geometry_group.create_dataset(str(idx), data=coords)
+            geometry_group[str(idx)].attrs["symbol"] = symbol
+
+        group.attrs["units"] = self.units.value
+        group.attrs["multiplicity"] = self.multiplicity
+        group.attrs["charge"] = self.charge
+
+        if self._masses:
+            group.create_dataset("masses", data=self._masses)
+
+    @staticmethod
+    def from_hdf5(h5py_group: h5py.Group) -> Molecule:
+        """Constructs a new instance from the data stored in the provided HDF5 group.
+
+        See also :func:`~qiskit_nature.hdf5.HDF5Storable.from_hdf5` for more details.
+
+        Args:
+            h5py_group: the HDF5 group from which to load the data.
+
+        Returns:
+            A new instance of this class.
+        """
+        geometry = []
+        for atom in h5py_group["geometry"].values():
+            geometry.append((atom.attrs["symbol"], list(atom[...])))
+
+        units: UnitsType
+        for unit in UnitsType:
+            if unit.value == h5py_group.attrs["units"]:
+                units = unit
+                break
+        else:
+            units = UnitsType.ANGSTROM
+
+        multiplicity = h5py_group.attrs["multiplicity"]
+        charge = h5py_group.attrs["charge"]
+
+        masses = None
+        if "masses" in h5py_group.keys():
+            masses = list(h5py_group["masses"])
+
+        return Molecule(
+            geometry,
+            multiplicity=multiplicity,
+            charge=charge,
+            units=units,
+            masses=masses,
+        )
+
     def __str__(self) -> str:
         string = ["Molecule:"]
         string += [f"\tMultiplicity: {self._multiplicity}"]
         string += [f"\tCharge: {self._charge}"]
+        string += [f"\tUnit: {self.units.value}"]
         string += ["\tGeometry:"]
         for atom, xyz in self._geometry:
             string += [f"\t\t{atom}\t{xyz}"]
@@ -87,9 +162,7 @@ class Molecule:
     def _check_consistency(geometry: List[Tuple[str, List[float]]], masses: Optional[List[float]]):
         if masses is not None and len(masses) != len(geometry):
             raise ValueError(
-                "Length of masses {} must match length of geometries {}".format(
-                    len(masses), len(geometry)
-                )
+                f"Length of masses {len(masses)} must match length of geometries {len(geometry)}"
             )
 
     @classmethod
@@ -120,7 +193,7 @@ class Molecule:
 
         starting_distance_vector = starting_coord1 - coord2
         starting_l2distance = np.linalg.norm(starting_distance_vector)
-        new_l2distance = function(starting_l2distance, parameter)
+        new_l2distance = function(cast(float, starting_l2distance), parameter)
         new_distance_vector = starting_distance_vector * (new_l2distance / starting_l2distance)
         new_coord1 = coord2 + new_distance_vector
 
@@ -345,18 +418,18 @@ class Molecule:
 
     def _get_perturbed_geom(self) -> List[Tuple[str, List[float]]]:
         """get perturbed geometry"""
-        if self.perturbations is None or self._degrees_of_freedom is None:
+        if self.perturbations is None or self.degrees_of_freedom is None:
             return self._geometry
 
         geometry = copy.deepcopy(self._geometry)
-        for per, dof in zip(self.perturbations, self._degrees_of_freedom):
+        for per, dof in zip(self.perturbations, self.degrees_of_freedom):
             geometry = dof(per, geometry)
         return geometry
 
     @property
     def units(self):
         """The geometry coordinate units"""
-        return UnitsType.ANGSTROM
+        return self._units
 
     @property
     def atoms(self) -> List[str]:
@@ -414,3 +487,13 @@ class Molecule:
     def perturbations(self, value: Optional[List[float]]) -> None:
         """Set perturbations"""
         self._perturbations = value
+
+    @property
+    def degrees_of_freedom(self) -> Optional[List[Callable]]:
+        """Get the Molecule's degrees of freedom"""
+        return self._degrees_of_freedom
+
+    @degrees_of_freedom.setter
+    def degrees_of_freedom(self, value: Optional[List[Callable]]) -> None:
+        """Sets the Molecule's degrees of freedom"""
+        self._degrees_of_freedom = value

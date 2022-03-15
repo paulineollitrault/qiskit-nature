@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020, 2021.
+# (C) Copyright IBM 2020, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,7 +13,7 @@
 """An implementation to extrapolate variational parameters."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Union, cast
+from typing import Optional, List, Dict, Union, cast, Iterable
 
 import numpy as np
 from sklearn import linear_model
@@ -76,13 +76,13 @@ class Extrapolator(ABC):
         Factory method for constructing extrapolators.
 
         Args:
-            mode: Extrapolator to instantiate. Can be one of:
+            mode: Extrapolator to instantiate. Can be one of
                 - 'window'
                 - 'poly'
                 - 'diff_model'
                 - 'pca'
                 - 'l1'
-            kwargs: arguments to be passed to the constructor of an extrapolator
+            **kwargs: arguments to be passed to the constructor of an extrapolator
 
         Returns:
             A newly created extrapolator instance.
@@ -101,7 +101,7 @@ class Extrapolator(ABC):
         elif mode == "l1":
             return SieveExtrapolator(**kwargs)
         else:
-            raise QiskitNatureError("No extrapolator called {}".format(mode))
+            raise QiskitNatureError(f"No extrapolator called {mode}")
 
 
 class PolynomialExtrapolator(Extrapolator):
@@ -149,7 +149,9 @@ class PolynomialExtrapolator(Extrapolator):
             poly = np.poly1d(coefficients)
             ret_param_arr += [poly(points)]
         ret_param_arr = np.transpose(ret_param_arr).tolist()
-        ret_params = dict(zip(points, ret_param_arr))
+        ret_params: Dict[float, List[float]] = dict(
+            zip(points, cast(Iterable[List[float]], ret_param_arr))
+        )
         return ret_params
 
 
@@ -217,7 +219,7 @@ class DifferentialExtrapolator(Extrapolator):
         for i in range(self._degree - 1):
             grad = np.gradient(features[i], axis=0)
             features.append(list(grad))
-        features = np.concatenate(features, axis=1)
+        features = cast(List[List[List[float]]], np.concatenate(features, axis=1))
         self._model.fit(features[:-1], response)
         next_params = np.asarray(self._model.predict([features[-1]])[0].tolist())
         ret_params = {point: next_params for point in points}
@@ -363,7 +365,7 @@ class PCAExtrapolator(Extrapolator):
         elif self._kernel in ["linear", "poly", "rbf", "sigmoid", "cosine"]:
             self._pca_model = KernelPCA(kernel=self._kernel, fit_inverse_transform=True)
         else:
-            raise QiskitNatureError("PCA kernel type {} not found".format(self._kernel))
+            raise QiskitNatureError(f"PCA kernel type {self._kernel} not found")
 
     def extrapolate(
         self, points: List[float], param_dict: Optional[Dict[float, List[float]]]

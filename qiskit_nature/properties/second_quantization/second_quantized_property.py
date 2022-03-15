@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2021.
+# (C) Copyright IBM 2021, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,10 +12,12 @@
 
 """The SecondQuantizedProperty base class."""
 
-from abc import abstractmethod
-from typing import Any, List, Type, TypeVar, Union
+from __future__ import annotations
 
-from qiskit_nature import QiskitNatureError
+from abc import abstractmethod
+from typing import Any, Type, TypeVar, Union
+
+from qiskit_nature import ListOrDictType, QiskitNatureError
 from qiskit_nature.drivers import QMolecule, WatsonHamiltonian
 from qiskit_nature.operators.second_quantization import SecondQuantizedOp
 
@@ -34,12 +36,18 @@ class SecondQuantizedProperty(Property):
     """
 
     @abstractmethod
-    def second_q_ops(self) -> List[SecondQuantizedOp]:
-        """Returns the list of second quantized operators associated with this Property."""
+    def second_q_ops(self) -> ListOrDictType[SecondQuantizedOp]:
+        """Returns the second quantized operators associated with this Property.
+
+        The actual return-type is determined by `qiskit_nature.settings.dict_aux_operators`.
+
+        Returns:
+            A `list` or `dict` of `SecondQuantizedOp` objects.
+        """
 
     @classmethod
     @abstractmethod
-    def from_legacy_driver_result(cls, result: LegacyDriverResult) -> "Property":
+    def from_legacy_driver_result(cls, result: LegacyDriverResult) -> Property:
         """Construct a :class:`~qiskit_nature.properties.Property` instance from a legacy driver
         result.
 
@@ -74,8 +82,11 @@ class GroupedSecondQuantizedProperty(GroupedProperty[T], SecondQuantizedProperty
     second-quantized properties."""
 
     @abstractmethod
-    def second_q_ops(self) -> List[SecondQuantizedOp]:
-        """
-        Returns the list of second quantized operators given by the properties contained in this
-        group.
+    def second_q_ops(self) -> ListOrDictType[SecondQuantizedOp]:
+        """Returns the second quantized operators associated with the properties in this group.
+
+        The actual return-type is determined by `qiskit_nature.settings.dict_aux_operators`.
+
+        Returns:
+            A `list` or `dict` of `SecondQuantizedOp` objects.
         """

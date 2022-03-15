@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2021.
+# (C) Copyright IBM 2021, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -92,7 +92,7 @@ class TestQubitConverter(QiskitNatureTestCase):
         self.driver_result = driver.run()
         particle_number = cast(ParticleNumber, self.driver_result.get_property(ParticleNumber))
         self.num_particles = (particle_number.num_alpha, particle_number.num_beta)
-        self.h2_op = self.driver_result.second_q_ops()[0]
+        self.h2_op = self.driver_result.second_q_ops()["ElectronicEnergy"]
 
     def test_mapping_basic(self):
         """Test mapping to qubit operator"""
@@ -169,12 +169,13 @@ class TestQubitConverter(QiskitNatureTestCase):
 
         # Regression test against https://github.com/Qiskit/qiskit-nature/issues/271
         with self.subTest("Two qubit reduction skipped when operator too small"):
+            qubit_conv.two_qubit_reduction = True
             small_op = FermionicOp(
                 [("N_0", 1.0), ("E_1", 1.0)], register_length=2, display_format="sparse"
             )
             expected_op = 1.0 * (I ^ I) - 0.5 * (I ^ Z) + 0.5 * (Z ^ Z)
             with contextlib.redirect_stderr(io.StringIO()) as out:
-                qubit_op = qubit_conv.convert(small_op)
+                qubit_op = qubit_conv.convert(small_op, num_particles=self.num_particles)
             self.assertEqual(qubit_op, expected_op)
             self.assertTrue(
                 out.getvalue()
@@ -189,20 +190,24 @@ class TestQubitConverter(QiskitNatureTestCase):
         """Test mapping to qubit operator with z2 symmetry tapering"""
         z2_sector = [-1, 1, -1]
 
-        def finder(z2_symmetries: Z2Symmetries) -> Optional[List[int]]:
+        def cb_finder(
+            z2_symmetries: Z2Symmetries, converter: QubitConverter
+        ) -> Optional[List[int]]:
             return z2_sector if not z2_symmetries.is_empty() else None
 
-        def find_none(_z2_symmetries: Z2Symmetries) -> Optional[List[int]]:
+        def cb_find_none(
+            _z2_symmetries: Z2Symmetries, converter: QubitConverter
+        ) -> Optional[List[int]]:
             return None
 
         mapper = JordanWignerMapper()
         qubit_conv = QubitConverter(mapper, z2symmetry_reduction="auto")
 
         with self.subTest("Locator returns None, should be untapered operator"):
-            qubit_op = qubit_conv.convert(self.h2_op, sector_locator=find_none)
+            qubit_op = qubit_conv.convert(self.h2_op, sector_locator=cb_find_none)
             self.assertEqual(qubit_op, TestQubitConverter.REF_H2_JW)
 
-        qubit_op = qubit_conv.convert(self.h2_op, sector_locator=finder)
+        qubit_op = qubit_conv.convert(self.h2_op, sector_locator=cb_finder)
         self.assertEqual(qubit_op, TestQubitConverter.REF_H2_JW_TAPERED)
 
         with self.subTest("convert_match()"):
@@ -215,12 +220,14 @@ class TestQubitConverter(QiskitNatureTestCase):
         """Test mapping to qubit operator with z2 symmetry tapering and two qubit reduction"""
         z2_sector = [-1]
 
-        def finder(z2_symmetries: Z2Symmetries) -> Optional[List[int]]:
+        def cb_finder(
+            z2_symmetries: Z2Symmetries, converter: QubitConverter
+        ) -> Optional[List[int]]:
             return z2_sector if not z2_symmetries.is_empty() else None
 
         mapper = ParityMapper()
         qubit_conv = QubitConverter(mapper, two_qubit_reduction=True, z2symmetry_reduction="auto")
-        qubit_op = qubit_conv.convert(self.h2_op, self.num_particles, sector_locator=finder)
+        qubit_op = qubit_conv.convert(self.h2_op, self.num_particles, sector_locator=cb_finder)
         self.assertEqual(qubit_op, TestQubitConverter.REF_H2_PARITY_2Q_REDUCED_TAPER)
         self.assertEqual(qubit_conv.num_particles, self.num_particles)
         self.assertListEqual(qubit_conv.z2symmetries.tapering_values, z2_sector)
@@ -270,7 +277,7 @@ class TestQubitConverter(QiskitNatureTestCase):
         mapper = JordanWignerMapper()
         qubit_conv = QubitConverter(mapper, two_qubit_reduction=True, z2symmetry_reduction="auto")
         qubit_op = qubit_conv.convert(
-            problem.second_q_ops()[0],
+            problem.second_q_ops()[problem.main_property_name],
             self.num_particles,
             sector_locator=problem.symmetry_sector_locator,
         )

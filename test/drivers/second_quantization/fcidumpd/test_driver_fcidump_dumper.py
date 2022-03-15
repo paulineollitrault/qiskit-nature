@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020, 2021.
+# (C) Copyright IBM 2020, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,6 +20,7 @@ import numpy as np
 from qiskit_nature import QiskitNatureError
 from qiskit_nature.drivers import UnitsType
 from qiskit_nature.drivers.second_quantization import FCIDumpDriver, PySCFDriver
+import qiskit_nature.optionals as _optionals
 
 
 class BaseTestDriverFCIDumpDumper(ABC):
@@ -60,27 +61,27 @@ class BaseTestDriverFCIDumpDumper(ABC):
 
     def test_dumped_inactive_energy(self):
         """dumped inactive energy test"""
-        self.log.debug("Dumped inactive energy is {:g}".format(self.dumped["ECORE"]))
+        self.log.debug("Dumped inactive energy is %g", self.dumped["ECORE"])
         self.assertAlmostEqual(self.dumped["ECORE"], self.core_energy, places=3)
 
     def test_dumped_num_molecular_orbitals(self):
         """dumped number of orbitals test"""
-        self.log.debug("Dumped number of orbitals is {:d}".format(self.dumped["NORB"]))
+        self.log.debug("Dumped number of orbitals is %d", self.dumped["NORB"])
         self.assertEqual(self.dumped["NORB"], self.num_molecular_orbitals)
 
     def test_dumped_num_electrons(self):
         """dumped number of electrons test"""
-        self.log.debug("Dumped number of electrons is {:d}".format(self.dumped["NELEC"]))
+        self.log.debug("Dumped number of electrons is %d", self.dumped["NELEC"])
         self.assertEqual(self.dumped["NELEC"], self.num_electrons)
 
     def test_dumped_spin_number(self):
         """dumped spin number test"""
-        self.log.debug("Dumped spin number is {:d}".format(self.dumped["MS2"]))
+        self.log.debug("Dumped spin number is %d", self.dumped["MS2"])
         self.assertEqual(self.dumped["MS2"], self.spin_number)
 
     def test_dumped_wave_function_sym(self):
         """dumped wave function symmetry test"""
-        self.log.debug("Dumped wave function symmetry is {:d}".format(self.dumped["ISYM"]))
+        self.log.debug("Dumped wave function symmetry is %d", self.dumped["ISYM"])
         self.assertEqual(self.dumped["ISYM"], self.wf_symmetry)
 
     def test_dumped_orbital_syms(self):
@@ -107,6 +108,7 @@ class BaseTestDriverFCIDumpDumper(ABC):
 class TestDriverFCIDumpDumpH2(QiskitNatureTestCase, BaseTestDriverFCIDumpDumper):
     """RHF FCIDump Driver tests."""
 
+    @unittest.skipIf(not _optionals.HAS_PYSCF, "pyscf not available.")
     def setUp(self):
         super().setUp()
         self.core_energy = 0.7199
@@ -129,14 +131,12 @@ class TestDriverFCIDumpDumpH2(QiskitNatureTestCase, BaseTestDriverFCIDumpDumper)
 
             with tempfile.NamedTemporaryFile() as dump:
                 FCIDumpDriver.dump(driver_result, dump.name)
-                # pylint: disable=import-outside-toplevel
+                # pylint: disable=import-outside-toplevel,import-error
                 from pyscf.tools import fcidump as pyscf_fcidump
 
                 self.dumped = pyscf_fcidump.read(dump.name)
-        except QiskitNatureError:
-            self.skipTest("PYSCF driver does not appear to be installed.")
-        except ImportError:
-            self.skipTest("PYSCF driver does not appear to be installed.")
+        except QiskitNatureError as ex:
+            self.skipTest(str(ex))
 
 
 if __name__ == "__main__":

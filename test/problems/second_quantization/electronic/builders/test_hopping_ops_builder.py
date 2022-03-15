@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2021.
+# (C) Copyright IBM 2021, 2022.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -11,7 +11,8 @@
 # that they have been altered from the originals.
 
 """Tests Hopping Operators builder."""
-from test import QiskitNatureTestCase, requires_extra_library
+import unittest
+from test import QiskitNatureTestCase
 
 from qiskit.opflow import PauliSumOp
 from qiskit.utils import algorithm_globals
@@ -24,12 +25,13 @@ from qiskit_nature.problems.second_quantization import ElectronicStructureProble
 from qiskit_nature.problems.second_quantization.electronic.builders.hopping_ops_builder import (
     _build_qeom_hopping_ops,
 )
+import qiskit_nature.optionals as _optionals
 
 
 class TestHoppingOpsBuilder(QiskitNatureTestCase):
     """Tests Hopping Operators builder."""
 
-    @requires_extra_library
+    @unittest.skipIf(not _optionals.HAS_PYSCF, "pyscf not available.")
     def setUp(self):
         super().setUp()
         algorithm_globals.random_seed = 8
@@ -56,38 +58,18 @@ class TestHoppingOpsBuilder(QiskitNatureTestCase):
         expected_hopping_operators = (
             {
                 "E_0": PauliSumOp.from_list(
-                    [("IIXX", 1), ("IIYX", -1j), ("IIXY", 1j), ("IIYY", 1)]
+                    [("IIXX", 1), ("IIYX", 1j), ("IIXY", -1j), ("IIYY", 1)]
                 ),
                 "Edag_0": PauliSumOp.from_list(
-                    [("IIXX", -1), ("IIYX", -1j), ("IIXY", 1j), ("IIYY", -1)]
+                    [("IIXX", -1), ("IIYX", 1j), ("IIXY", -1j), ("IIYY", -1)]
                 ),
                 "E_1": PauliSumOp.from_list(
-                    [("XXII", 1), ("YXII", -1j), ("XYII", 1j), ("YYII", 1)]
+                    [("XXII", 1), ("YXII", 1j), ("XYII", -1j), ("YYII", 1)]
                 ),
                 "Edag_1": PauliSumOp.from_list(
-                    [("XXII", -1), ("YXII", -1j), ("XYII", 1j), ("YYII", -1)]
+                    [("XXII", -1), ("YXII", 1j), ("XYII", -1j), ("YYII", -1)]
                 ),
                 "E_2": PauliSumOp.from_list(
-                    [
-                        ("XXXX", 1),
-                        ("YXXX", -1j),
-                        ("XYXX", 1j),
-                        ("YYXX", 1),
-                        ("XXYX", -1j),
-                        ("YXYX", -1),
-                        ("XYYX", 1),
-                        ("YYYX", -1j),
-                        ("XXXY", 1j),
-                        ("YXXY", 1),
-                        ("XYXY", -1),
-                        ("YYXY", 1j),
-                        ("XXYY", 1),
-                        ("YXYY", -1j),
-                        ("XYYY", 1j),
-                        ("YYYY", 1),
-                    ]
-                ),
-                "Edag_2": PauliSumOp.from_list(
                     [
                         ("XXXX", 1),
                         ("YXXX", 1j),
@@ -104,6 +86,26 @@ class TestHoppingOpsBuilder(QiskitNatureTestCase):
                         ("XXYY", 1),
                         ("YXYY", 1j),
                         ("XYYY", -1j),
+                        ("YYYY", 1),
+                    ]
+                ),
+                "Edag_2": PauliSumOp.from_list(
+                    [
+                        ("XXXX", 1),
+                        ("YXXX", -1j),
+                        ("XYXX", 1j),
+                        ("YYXX", 1),
+                        ("XXYX", -1j),
+                        ("YXYX", -1),
+                        ("XYYX", 1),
+                        ("YYYX", -1j),
+                        ("XXXY", 1j),
+                        ("YXXY", 1),
+                        ("XYXY", -1),
+                        ("YYXY", 1j),
+                        ("XXYY", 1),
+                        ("YXYY", -1j),
+                        ("XYYY", 1j),
                         ("YYYY", 1),
                     ]
                 ),

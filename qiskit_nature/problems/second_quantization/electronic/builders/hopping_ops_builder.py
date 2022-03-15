@@ -66,7 +66,6 @@ def _build_qeom_hopping_ops(
     if isinstance(excitations, (str, int)) or (
         isinstance(excitations, list) and all(isinstance(exc, int) for exc in excitations)
     ):
-        excitations = cast(Union[str, int, List[int]], excitations)
         ansatz = UCC(qubit_converter, (num_alpha, num_beta), num_spin_orbitals, excitations)
         excitations_list = ansatz._get_excitation_list()
     else:
@@ -81,12 +80,12 @@ def _build_qeom_hopping_ops(
     to_be_executed_list = []
     for idx in range(size):
         to_be_executed_list += [excitations_list[idx], excitations_list[idx][::-1]]
-        hopping_operators["E_{}".format(idx)] = None
-        hopping_operators["Edag_{}".format(idx)] = None
-        type_of_commutativities["E_{}".format(idx)] = None
-        type_of_commutativities["Edag_{}".format(idx)] = None
-        excitation_indices["E_{}".format(idx)] = excitations_list[idx]
-        excitation_indices["Edag_{}".format(idx)] = excitations_list[idx][::-1]
+        hopping_operators[f"E_{idx}"] = None
+        hopping_operators[f"Edag_{idx}"] = None
+        type_of_commutativities[f"E_{idx}"] = None
+        type_of_commutativities[f"Edag_{idx}"] = None
+        excitation_indices[f"E_{idx}"] = excitations_list[idx]
+        excitation_indices[f"Edag_{idx}"] = excitations_list[idx][::-1]
 
     result = parallel_map(
         _build_single_hopping_operator,
@@ -114,16 +113,18 @@ def _build_single_hopping_operator(
         label[unocc] = "-"
     fer_op = FermionicOp(("".join(label), 4.0 ** len(excitation[0])), display_format="sparse")
 
-    qubit_op: PauliSumOp = qubit_converter.convert_match(fer_op)
+    qubit_op: PauliSumOp = qubit_converter.convert_only(fer_op, qubit_converter.num_particles)
     z2_symmetries = qubit_converter.z2symmetries
 
     commutativities = []
     if not z2_symmetries.is_empty():
         for symmetry in z2_symmetries.symmetries:
             symmetry_op = PauliSumOp.from_list([(symmetry.to_label(), 1.0)])
-            commuting = qubit_op.primitive.table.commutes_with_all(symmetry_op.primitive.table)
-            anticommuting = qubit_op.primitive.table.anticommutes_with_all(
-                symmetry_op.primitive.table
+            paulis = qubit_op.primitive.paulis
+            len_paulis = len(paulis)
+            commuting = len(paulis.commutes_with_all(symmetry_op.primitive.paulis)) == len_paulis
+            anticommuting = (
+                len(paulis.anticommutes_with_all(symmetry_op.primitive.paulis)) == len_paulis
             )
 
             if commuting != anticommuting:  # only one of them is True
@@ -133,8 +134,8 @@ def _build_single_hopping_operator(
                     commutativities.append(False)
             else:
                 raise QiskitNatureError(
-                    "Symmetry {} is nor commute neither anti-commute "
-                    "to exciting operator.".format(symmetry.to_label())
+                    f"Symmetry {symmetry.to_label()} neither commutes nor anti-commutes "
+                    "with excitation operator."
                 )
 
     return qubit_op, commutativities

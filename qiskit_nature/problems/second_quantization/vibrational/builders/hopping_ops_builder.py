@@ -58,7 +58,6 @@ def _build_qeom_hopping_ops(
     if isinstance(excitations, (str, int)) or (
         isinstance(excitations, list) and all(isinstance(exc, int) for exc in excitations)
     ):
-        excitations = cast(Union[str, int, List[int]], excitations)
         ansatz = UVCC(qubit_converter, num_modals, excitations)
         excitations_list = ansatz._get_excitation_list()
     else:
@@ -71,10 +70,10 @@ def _build_qeom_hopping_ops(
     to_be_executed_list = []
     for idx in range(size):
         to_be_executed_list += [excitations_list[idx], excitations_list[idx][::-1]]
-        hopping_operators["E_{}".format(idx)] = None
-        hopping_operators["Edag_{}".format(idx)] = None
-        excitation_indices["E_{}".format(idx)] = excitations_list[idx]
-        excitation_indices["Edag_{}".format(idx)] = excitations_list[idx][::-1]
+        hopping_operators[f"E_{idx}"] = None
+        hopping_operators[f"Edag_{idx}"] = None
+        excitation_indices[f"E_{idx}"] = excitations_list[idx]
+        excitation_indices[f"Edag_{idx}"] = excitations_list[idx][::-1]
 
     result = parallel_map(
         _build_single_hopping_operator,
@@ -90,7 +89,7 @@ def _build_qeom_hopping_ops(
     # at the moment we do not have any type of commutativity in the bosonic case.
     type_of_commutativities: Dict[str, List[bool]] = {}
 
-    return hopping_operators, type_of_commutativities, excitation_indices  # type: ignore
+    return hopping_operators, type_of_commutativities, excitation_indices
 
 
 def _build_single_hopping_operator(
