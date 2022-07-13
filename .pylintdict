@@ -20,6 +20,7 @@ antisymmetrized
 ao
 april
 arginine
+arg
 args
 arrowheads
 arrowstyle
@@ -52,6 +53,7 @@ cargs
 cartesian
 cbit
 ccx
+cdots
 cfg
 chc
 chiral
@@ -100,6 +102,7 @@ debye
 deepcopy
 dft
 diag
+diagonalization
 diagonalize
 diagonalizes
 diagonalizing
@@ -109,6 +112,7 @@ dimensionality
 discoverable
 distinguishability
 dll
+docstring
 dof
 doi
 dt
@@ -122,6 +126,7 @@ eigensolvers
 eigenstate
 eigenstateresult
 eigenstates
+eigenvector
 einact
 einsum
 endian
@@ -150,6 +155,7 @@ fock
 formatter
 fortran
 fredkin
+für
 gauopen
 gaussian
 gaussiand
@@ -209,6 +215,7 @@ iten
 iterable
 iteratively
 itertools
+ivano
 iz
 james
 jb
@@ -230,6 +237,7 @@ kwargs
 kwds
 labelled
 lda
+ldots
 len
 leucine
 levinthal
@@ -244,6 +252,7 @@ ljik
 lk
 logfile
 lookback
+lvert
 lysine
 macos
 majorana
@@ -252,6 +261,7 @@ matplotlib
 maxdepth
 maxiter
 maxiters
+mazzola
 mcp
 mcrx
 mcry
@@ -270,6 +280,7 @@ moc
 mohij
 mohijkl
 mol
+moller
 morse
 mpl
 mul
@@ -277,6 +288,7 @@ multi
 multigraph
 multinomial
 mypy
+møller
 namelist
 nan
 nannichini
@@ -318,6 +330,7 @@ ortho
 orthonormal
 otimes
 outpath
+overline
 pac
 param
 parameterized
@@ -331,6 +344,9 @@ perturbative
 pes
 phenylalanine
 phonons
+physrevd
+physik
+plesset
 pmatrix
 polypeptides
 popovas
@@ -339,10 +355,12 @@ posteriori
 pre
 prebuilt
 prepend
+prepended
 preprint
 preprocesses
 proline
 ps
+pseudorandom
 pxd
 py
 pyquante
@@ -353,6 +371,7 @@ qasm
 qbit
 qcmatrixio
 qeom
+qfi
 qiskit
 qiskit's
 qmolecule
@@ -365,6 +384,7 @@ qubit
 qubits
 qutrit
 radians
+rangle
 rcccx
 rccx
 readme
@@ -394,6 +414,7 @@ ryy
 rz
 rzx
 rzz
+scalable
 scf
 schroedinger
 schur
@@ -407,6 +428,7 @@ setia
 setted
 shende
 sklearn
+slater
 spinop
 springer
 spsa
@@ -451,6 +473,7 @@ traceback
 tran
 translational
 transpilation
+transpile
 trotterization
 tryptophan
 tuple
@@ -512,6 +535,7 @@ xyz
 ydata
 yx
 yy
+zeitschrift
 zi
 zmatrix
 zsh

@@ -15,17 +15,16 @@
 from __future__ import annotations
 
 import re
-import warnings
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator
 from itertools import product
 from typing import Optional, Union, cast
 
 import numpy as np
 from scipy.sparse import csc_matrix
+
 from qiskit_nature.deprecation import deprecate_function
 from qiskit_nature.operators.second_quantization.second_quantized_op import SecondQuantizedOp
-
 
 _ZERO_LABELS = {
     ("+", "+"),
@@ -217,8 +216,6 @@ class FermionicOp(SecondQuantizedOp):
     form (action, index), where the action is either "+" or "-" and the index is the integer
     index of the factor in the term.
     """
-    # Warn only once
-    _display_format_warn = True
 
     _truncate = 200
 
@@ -229,10 +226,11 @@ class FermionicOp(SecondQuantizedOp):
             tuple[str, complex],
             list[tuple[str, complex]],
             list[tuple[str, float]],
-            Sequence[tuple[Iterable[tuple[str, int]], complex]],
+            list[tuple[list[tuple[str, int]], complex]],
+            list[tuple[tuple[tuple[str, int], ...], complex]],
         ],
         register_length: Optional[int] = None,
-        display_format: Optional[str] = None,
+        display_format: str = "sparse",
     ):
         """
         Args:
@@ -240,28 +238,25 @@ class FermionicOp(SecondQuantizedOp):
                   tuple (label, coeff), or list [(label, coeff)].
             register_length: positive integer that represents the length of registers.
             display_format: If sparse, the label is represented sparsely during output.
-                            if dense, the label is represented densely during output. (default: dense)
+                            if dense, the label is represented densely during output. (default: sparse)
 
         Raises:
             ValueError: given data is invalid value.
             TypeError: given data has invalid type.
         """
-        if display_format is None:
-            display_format = "dense"
-            if FermionicOp._display_format_warn:
-                FermionicOp._display_format_warn = False
-                warnings.warn(
-                    "The default value for `display_format` will be changed from 'dense' "
-                    "to 'sparse' in version 0.3.0. Once that happens, you must specify "
-                    "display_format='dense' directly.",
-                    stacklevel=2,
-                )
-
         self.display_format = display_format
 
         self._data: list[tuple[tuple[tuple[str, int], ...], complex]]
 
         if (
+            isinstance(data, list)
+            and isinstance(data[0], tuple)
+            and isinstance(data[0][0], tuple)
+            and not isinstance(data[0][0], str)
+        ):
+            data = cast("list[tuple[tuple[tuple[str, int], ...], complex]]", data)
+            self._data = data
+        elif (
             isinstance(data, list)
             and isinstance(data[0], tuple)
             and isinstance(data[0][0], Iterable)
@@ -601,8 +596,8 @@ class FermionicOp(SecondQuantizedOp):
         if atol is None:
             atol = self.atol
 
-        data = defaultdict(float)  # type: dict[tuple[tuple[str, int], ...], complex]
-        for label, coeff in self._data:
+        data = defaultdict(complex)  # type: dict[str, complex]
+        for label, coeff in self._to_dense_label_data():
             data[label] += coeff
         terms = [
             (label, coeff) for label, coeff in data.items() if not np.isclose(coeff, 0.0, atol=atol)
